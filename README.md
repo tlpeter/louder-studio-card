@@ -26,7 +26,19 @@ Het spectrum gebruikt een FFT op dezelfde samples. De frequentieaanduiding is re
 
 **Demo-animatie** is apart te kiezen. Het lokale voorbeeld gebruikt uitsluitend fictieve gegevens en verstuurt nooit opdrachten naar echte apparaten.
 
-## Installeren in Home Assistant
+## Installeren via HACS
+
+De repository is voorbereid voor HACS als **Dashboard**-repository. De repository is momenteel privé. HACS ondersteunt uitsluitend openbare repositories; deze installatiemethode werkt pas als de eigenaar besluit de repository openbaar te maken. Zie de [HACS-vereisten](https://www.hacs.dev/docs/publish/start/).
+
+Na openbaarmaking:
+
+1. Open HACS en kies **Aangepaste repositories** in het menu.
+2. Voeg `https://github.com/tlpeter/louder-studio-card` toe als type **Dashboard**.
+3. Download Louder Studio Card en herlaad de browser.
+
+Bij een bestaande Louder Studio-installatie moet de oude inline/lokale dashboardresource eenmalig worden vervangen door de HACS-resource `/hacsfiles/louder-studio-card/louder-amplifier-card.js`. Zorg dat slechts één bron deze kaart registreert. De kaartconfiguratie en het dashboard kunnen behouden blijven. Daarna kunnen volgende downloads via HACS verlopen.
+
+## Handmatig installeren in Home Assistant
 
 1. Download het bestand `louder-amplifier-card.js`, of de kaart uit het artifact van een geslaagde Actions-run.
 2. Plaats het in `/config/www/louder-studio-card/`.
