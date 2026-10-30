@@ -22,7 +22,7 @@ function frame(timestamp,bytes){const b=new ArrayBuffer(1033);new DataView(b).se
  lastSocket.onopen();assert.equal(lastSocket.sent[0].type,'client/time');
  relay.receive(JSON.stringify({type:'server/time',payload:{client_transmitted:990000,server_received:1995000,server_transmitted:1995000}}));
  assert.equal(relay.offset,1000000);
- relay.receive(frame(2000000,sine()));assert(relay.currentLevels().rms>.3);
+ relay.receive(frame(2000000,sine()));assert(relay.currentLevels().rms>.3);assert(states.includes('streaming'),'Receiving valid audio must leave the connecting state');
  nowMs=1300;assert.equal(relay.currentLevels(),null,'Stale waveform cannot keep the meters moving');
  relay.receive(frame(2400000,sine(.2)));assert.equal(relay.currentLevels(),null,'Future waveform must wait for its play-at time');
  nowMs=1400;assert(Math.abs(relay.currentLevels().rms-Math.SQRT1_2*.2)<.005);

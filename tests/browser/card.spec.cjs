@@ -71,6 +71,7 @@ test('live needles react to PCM level, silence and missing data without demo fal
     window.WebSocket=class{
       constructor(){this.readyState=0;setTimeout(()=>{
         this.readyState=1;this.onopen?.();
+        this.onmessage?.({data:JSON.stringify({type:'stream/start',payload:{visualizer:{types:['waveform']}}})});
         this.interval=setInterval(()=>{
           if(!window.testEmitAudio)return;
           const data=new ArrayBuffer(1033),view=new DataView(data);view.setUint8(0,22);view.setBigInt64(1,BigInt(Math.round(performance.now()*1000+1000000)),false);

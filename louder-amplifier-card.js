@@ -86,6 +86,7 @@
       if(!(data instanceof ArrayBuffer)||data.byteLength!==1033)return;
       const view=new DataView(data);if(view.getUint8(0)!==22)return;
       const timestamp=Number(view.getBigInt64(1,false));if(!Number.isSafeInteger(timestamp))return;
+      this.onState('streaming');
       this.frames.push({timestamp,bytes:new Uint8Array(data,9).slice()});
       if(this.frames.length>1&&this.frames.at(-2).timestamp>timestamp)this.frames.sort((a,b)=>a.timestamp-b.timestamp);
       if(this.frames.length>512)this.frames.splice(0,this.frames.length-512);
