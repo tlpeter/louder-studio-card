@@ -35,7 +35,21 @@ De beelden hieronder zijn screenshots van de werkende kaart met fictieve spelers
 
 ![Kleuren en uiterlijk: stijl, visualisatie, databron, vier kleurvelden en kleurcombinaties](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/appearance-settings.png)
 
-De voorkeuren worden direct in deze browser bewaard; iedere stijl onthoudt zijn eigen kleuren. Je hoeft hiervoor geen YAML aan te passen. EQ-profielen en schuiven staan verder naar beneden en verschijnen alleen bij een daarvoor geconfigureerde versterker. Nieuwe speakers en hun optionele hardwarekoppelingen voeg je toe aan de kaartconfiguratie.
+De voorkeuren worden direct in deze browser bewaard; iedere stijl onthoudt zijn eigen kleuren. Je hoeft hiervoor geen YAML aan te passen. EQ-profielen en schuiven staan verder naar beneden en verschijnen alleen bij een daarvoor geconfigureerde versterker.
+
+### Andere slimme speakers toevoegen
+
+HACS zoekt geen speakers op je netwerk. Voeg een speaker eerst via zijn passende integratie toe aan Home Assistant, zodat hij daar als `media_player` beschikbaar is.
+
+Vanaf **2.2.0-beta.2** kun je zonder YAML spelers kiezen:
+
+1. Open je dashboard en kies **Dashboard bewerken**.
+2. Kies **Bewerken** bij deze kaart; schakel zo nodig van de code-editor naar de visuele editor.
+3. Bij **Speakers beheren** zie je de beschikbare Home Assistant-spelers, inclusief bestaande spelers die tijdelijk niet beschikbaar zijn. Zoek op naam en vink de gewenste speakers aan.
+4. Kies de **Hoofdspeler** of bestaande groep voor het bovenste afspeelpaneel.
+5. Klik in Home Assistant op **Opslaan** en sluit de dashboardeditor.
+
+Je bestaande EQ-, mixer- en sensorkoppelingen blijven behouden bij geselecteerde versterkers. Een nieuwe speaker krijgt de bediening die zijn HA-integratie aanbiedt; er worden geen luidsprekers automatisch gegroepeerd. Voor optionele hardwarekoppelingen zoals losse EQ-entiteiten blijft de uitgebreide kaartconfiguratie beschikbaar.
 
 Zie je **Kleuren & uiterlijk** niet? Controleer of het dashboard de nieuwe HACS-resource laadt en herlaad de browser volledig. Volg hieronder de stappen voor een bestaande installatie; je hoeft je dashboard niet opnieuw te maken.
 

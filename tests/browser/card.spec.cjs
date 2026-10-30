@@ -79,6 +79,57 @@ async function generic(page,features=0){
   },features);
 }
 
+async function editor(page){
+  await page.goto('/');await expect(page.locator('#title')).toHaveText('Demo track');
+  await page.evaluate(()=>{
+    const card=document.querySelector('louder-amplifier-card');window.editorEvents=[];
+    window.originalEditorConfig=structuredClone(card._cfg);
+    const editor=card.constructor.getConfigElement();editor.id='speaker-editor';
+    const states={...card.hass.states,
+      'media_player.test_sonos':{state:'idle',attributes:{friendly_name:'Sonos · testspeler',supported_features:4|8}},
+      'media_player.test_cast':{state:'unavailable',attributes:{friendly_name:'Nest · testspeler',supported_features:4}},
+      'light.not_a_speaker':{state:'on',attributes:{friendly_name:'Geen speaker'}}};
+    editor.setConfig(card._cfg);editor.hass={...card.hass,states};
+    editor.addEventListener('config-changed',event=>{window.editorEvents.push(structuredClone(event.detail.config));editor.setConfig(event.detail.config);});
+    document.body.prepend(editor);
+  });
+}
+
+test('visual editor discovers HA players and preserves amplifier configuration',async({page},testInfo)=>{
+  await editor(page);
+  const e=page.locator('#speaker-editor');
+  await expect(e.getByRole('heading',{name:'Speakers beheren'})).toBeVisible();
+  await expect(e.getByRole('checkbox')).toHaveCount(5);
+  await expect(e.getByText('Geen speaker',{exact:true})).toHaveCount(0);
+  expect(await page.evaluate(()=>window.editorEvents)).toEqual([]);
+  await e.getByRole('checkbox',{name:'Sonos · testspeler (media_player.test_sonos)',exact:true}).check();
+  const result=await page.evaluate(()=>({original:window.originalEditorConfig,changed:window.editorEvents.at(-1)}));
+  expect(result.changed.players).toHaveLength(3);expect(result.changed.boards).toBeUndefined();
+  expect(result.changed.players.slice(0,2)).toEqual(result.original.boards);
+  expect(result.changed.players[2]).toEqual({player:'media_player.test_sonos'});
+  await e.getByRole('combobox',{name:'Hoofdspeler',exact:true}).selectOption('media_player.test_sonos');
+  expect(await page.evaluate(()=>window.editorEvents.at(-1).entity)).toBe('media_player.test_sonos');
+  await page.evaluate(()=>{const card=document.querySelector('louder-amplifier-card');card.setConfig(window.editorEvents.at(-1));});
+  await expect(page.locator('.boards .card')).toHaveCount(3);await expect(page.locator('#bands input')).toHaveCount(15);
+  await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+  await e.screenshot({path:testInfo.outputPath('speaker-editor.png')});
+});
+
+test('visual editor searches, retains unavailable players and prevents an empty selection',async({page})=>{
+  await editor(page);const e=page.locator('#speaker-editor');
+  await e.getByRole('searchbox',{name:'Zoek een speaker'}).fill('Nest');
+  await expect(e.locator('[data-row]:visible')).toHaveCount(1);
+  await e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true}).check();
+  expect(await page.evaluate(()=>window.editorEvents.at(-1).players.some(p=>p.player==='media_player.test_cast'))).toBe(true);
+  await e.getByRole('searchbox',{name:'Zoek een speaker'}).fill('');
+  await e.getByRole('checkbox',{name:'Links (media_player.speaker_links)',exact:true}).uncheck();
+  await e.getByRole('checkbox',{name:'Rechts (media_player.speaker_rechts)',exact:true}).uncheck();
+  await e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true}).uncheck();
+  await expect(e.getByRole('alert')).toHaveText('Kies minimaal één en maximaal 32 spelers.');
+  await expect(e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true})).toBeChecked();
+  await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+});
+
 test('generic players need no amplifier entities and unsupported controls remain unavailable',async({page})=>{
   await generic(page,0);await expect(page.locator('.eq')).toBeHidden();
   await expect(page.locator('.boards .card')).toHaveCount(2);
