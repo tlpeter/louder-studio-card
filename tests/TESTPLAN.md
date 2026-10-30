@@ -8,4 +8,6 @@ CodeQL controleert JavaScript, Gitleaks de volledige Git-historie, npm audit afh
 
 De visuele kaarteditor wordt getest op HA-spelerselectie, zoeken, tijdelijk onbeschikbare spelers, hoofdspelerkeuze, config-changed-events en behoud van bestaande EQ-/mixer-/sensorkoppelingen. Een lege selectie wordt geweigerd. Editoracties mogen geen apparaatopdrachten versturen.
 
+De knop Speakers beheren bovenaan wordt gecontroleerd op zichtbaarheid op desktop/mobiel, openen zonder dashboard-bewerkmodus, expliciet Opslaan/Annuleren, oude/nieuwe HA-paden voor panelen/secties, juiste kaartselectie en weigeren van niet-beheerder-, YAML- of dubbelzinnige contexten. Zie docs/FRONTEND_COMPATIBILITY.md voor de grens tussen deze synthetische proeven en een live HA-test.
+
 Praktijktests zijn apart vastgelegd in docs/SPEAKER_SUPPORT.md en hardware-issues. GitHub heeft geen toegang tot de speakers en kan die tests niet uitvoeren. Een beta blijft een beta totdat de relevante werkelijke routes zijn getest.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0-beta.3
+
+- Add a prominent Speakers beheren button at the top of the card. Open the native HA card editor directly without entering dashboard edit mode or scrolling past the equalizer.
+- Keep native Save/Cancel and permission handling; opening the editor sends no dashboard saves or device commands.
+- Verify legacy/current panel and section paths, unambiguous card targeting, administrator access, read-only contexts and desktop/mobile visibility.
+
 ## 2.2.0-beta.2
 
 - Add actual screenshots of all four styles and appearance settings to the README, using synthetic demo data.

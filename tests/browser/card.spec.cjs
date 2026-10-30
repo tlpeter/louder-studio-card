@@ -95,6 +95,73 @@ async function editor(page){
   });
 }
 
+test('top speaker button is visible and opens an editor with explicit Save and Cancel',async({page},testInfo)=>{
+  await page.goto('/');await expect(page.locator('#title')).toHaveText('Demo track');
+  const manage=page.getByRole('button',{name:'Speakers beheren',exact:true});
+  await expect(manage).toBeInViewport();await expect(manage).toBeEnabled();
+  await page.locator('.top').screenshot({path:testInfo.outputPath('speaker-toolbar.png')});
+  await page.evaluate(()=>{const c=document.querySelector('louder-amplifier-card');c.hass.states['media_player.test_extra']={state:'idle',attributes:{friendly_name:'Extra test speaker',supported_features:4|8,volume_level:.2}};c.hass={...c.hass};});
+  await manage.click();const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
+  await dialog.getByRole('checkbox',{name:'Extra test speaker (media_player.test_extra)',exact:true}).check();
+  await dialog.getByRole('button',{name:'Annuleren',exact:true}).click();
+  await expect(dialog).toHaveCount(0);await expect(page.locator('.boards .card')).toHaveCount(2);
+  await manage.click();await dialog.getByRole('checkbox',{name:'Extra test speaker (media_player.test_extra)',exact:true}).check();
+  await dialog.getByRole('button',{name:'Opslaan',exact:true}).click();
+  await expect(page.locator('.boards .card')).toHaveCount(3);await expect(page.locator('#bands input')).toHaveCount(15);
+  await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+  await page.screenshot({path:testInfo.outputPath('speaker-shortcut-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));
+  await expect(manage).toBeInViewport();
+  await page.locator('.top').screenshot({path:testInfo.outputPath('speaker-toolbar-mobile.png')});
+  await manage.click();await expect(dialog).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:testInfo.outputPath('speaker-shortcut-mobile.png'),fullPage:true});
+  await dialog.getByRole('button',{name:'Annuleren',exact:true}).click();
+});
+
+for(const shape of ['legacy panel','modern panel','legacy section','modern section']){
+  test('top speaker shortcut targets its own card in '+shape,async({page})=>{
+    await page.goto('/');await expect(page.locator('#title')).toHaveText('Demo track');
+    const expected=await page.evaluate(shape=>{
+      const c=document.querySelector('louder-amplifier-card'),wrapper=c.parentElement,layout=wrapper.parentElement,view=layout.parentElement,target=wrapper.config;
+      const unrelated={type:'markdown',content:'Other card'};const section=shape.endsWith('section'),modern=shape.startsWith('modern');
+      view.lovelace.config.views[0]=section?{sections:[{cards:[unrelated]},{cards:[unrelated,target]}]}:{cards:[unrelated,target]};
+      if(modern)layout.path=['views',0];else delete layout.path;
+      window.shortcutEvents=[];view.addEventListener('ll-edit-card',event=>{event.stopPropagation();window.shortcutEvents.push(event.detail);},{capture:true});
+      return modern?(section?['views',0,'sections',1,'cards',1]:['views',0,'cards',1]):(section?[0,1,1]:[0,1]);
+    },shape);
+    await page.getByRole('button',{name:'Speakers beheren',exact:true}).click();
+    expect(await page.evaluate(()=>window.shortcutEvents)).toEqual([{path:expected}]);
+    await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+  });
+}
+
+test('speaker shortcut crosses HA shadow roots and uses the native edit wrapper path',async({page})=>{
+  await page.goto('/');await expect(page.locator('#title')).toHaveText('Demo track');
+  await page.evaluate(()=>{
+    const card=document.querySelector('louder-amplifier-card'),wrapper=card.parentElement,layout=wrapper.parentElement,view=layout.parentElement;
+    const options=document.createElement('hui-card-options');options.path=[0,0];wrapper.replaceWith(options);options.append(wrapper);
+    wrapper.attachShadow({mode:'open'}).append(card);layout.attachShadow({mode:'open'}).append(options);
+    window.shortcutEvents=[];view.addEventListener('ll-edit-card',event=>{event.stopPropagation();window.shortcutEvents.push(event.detail);},{capture:true});
+  });
+  await page.getByRole('button',{name:'Speakers beheren',exact:true}).click();
+  expect(await page.evaluate(()=>window.shortcutEvents)).toEqual([{path:[0,0]}]);
+  await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+});
+
+test('speaker shortcut rejects non-admin, read-only and ambiguous dashboard contexts',async({page})=>{
+  await page.goto('/');await expect(page.locator('#title')).toHaveText('Demo track');
+  await page.evaluate(()=>{const c=document.querySelector('louder-amplifier-card');window.shortcutEvents=[];document.addEventListener('ll-edit-card',event=>window.shortcutEvents.push(event.detail),{capture:true});c.hass={...c.hass,user:{is_admin:false}};});
+  await expect(page.getByRole('button',{name:'Speakers beheren',exact:true})).toBeDisabled();
+  await page.evaluate(()=>{const c=document.querySelector('louder-amplifier-card');c._openSpeakerEditor();c.hass={...c.hass,user:{is_admin:true}};const view=c.parentElement.parentElement.parentElement;view.lovelace.mode='yaml';});
+  await page.getByRole('button',{name:'Speakers beheren',exact:true}).click();
+  await expect(page.locator('.speaker-access-note')).toContainText('kon hier niet rechtstreeks');
+  await page.evaluate(()=>{const c=document.querySelector('louder-amplifier-card'),view=c.parentElement.parentElement.parentElement;view.lovelace.mode='storage';view.lovelace.config.views[0].cards=[structuredClone(c.parentElement.config),structuredClone(c.parentElement.config)];});
+  await page.getByRole('button',{name:'Speakers beheren',exact:true}).click();
+  expect(await page.evaluate(()=>window.shortcutEvents)).toEqual([]);
+  await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+});
+
 test('visual editor discovers HA players and preserves amplifier configuration',async({page},testInfo)=>{
   await editor(page);
   const e=page.locator('#speaker-editor');

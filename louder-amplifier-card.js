@@ -1,4 +1,4 @@
-/* Multiroom Audio Dashboard v2.2.0-beta.2 — four styles, local colors and Music Assistant audio relay. */
+/* Multiroom Audio Dashboard v2.2.0-beta.3 — four styles, local colors and Music Assistant audio relay. */
 (() => {
   const TAG = 'multiroom-audio-dashboard';
   const LEGACY_TAG = 'louder-amplifier-card';
@@ -304,7 +304,7 @@
       return `<div class="analog-meter"><svg viewBox="0 0 220 146" role="img" aria-label="${ESC(label)} bronmeter in VU-stijl"><path class="meter-scale" d="M41 68 A90 90 0 0 1 179 68"/>${ticks}<text class="meter-title" x="110" y="92" text-anchor="middle">VU</text><text x="12" y="136">${ESC(label)}</text><text x="208" y="136" text-anchor="end">dBFS</text><line class="vu-needle" x1="110" y1="126" x2="110" y2="42" transform="rotate(-55 110 126)"/><circle class="meter-pivot" cx="110" cy="126" r="3"/></svg></div>`;
     }
     _installRetro() {
-      const style=document.createElement('style');style.textContent=RETRO_CSS+SKIN_CSS;this.shadowRoot.append(style);
+      const style=document.createElement('style');style.textContent=RETRO_CSS+SKIN_CSS+`.nav{flex-wrap:wrap}.nav .manage-speakers{background:var(--accent);border-color:var(--accent);color:var(--retro-accent-ink);font-weight:750;min-height:44px}.speaker-access-note{font-size:13px;line-height:1.5;margin:0 0 16px;color:var(--ink)}.speaker-access-note:empty{display:none}`;this.shadowRoot.append(style);
       const overview=this._q('.overview'),rack=document.createElement('div'),deck=document.createElement('div');rack.className='retro-rack';deck.className='retro-deck';deck.append(...overview.children);rack.append(deck,this._q('.boards'));overview.replaceWith(rack);this._q('.section-line').remove();
       this._q('canvas').insertAdjacentHTML('beforebegin',`<div class="analog-meters" hidden>${this._analogMeter('Links')}${this._analogMeter('Rechts')}</div>`);
       this._q('.foot').firstElementChild.lastChild.textContent=' De visualisatie toont de sfeer van het ontwerp, niet het gemeten geluid.';
@@ -357,7 +357,7 @@
       @media(max-width:620px){.board-body{grid-template-columns:98px minmax(0,1fr);gap:10px}.speaker-art{width:98px}.master-wrap{grid-template-columns:130px minmax(0,1fr);gap:8px}.nav button{font-size:11px;padding:10px 13px;min-height:40px}.master .small-caps{font-size:8px;letter-spacing:.6px}.section-line p{max-width:110px}.selects{gap:6px}}
       .presets{margin-top:15px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#f8fbfc}.preset-heading{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}.preset-heading b{color:var(--ink)}.preset-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.preset-buttons button{min-height:38px;font-size:11px;padding:8px 13px}.preset-buttons button[aria-pressed=true]{background:#e0f4f3;border-color:#83c8c9;color:#127e87}.preset-description,.preset-message{font-size:11px;color:var(--muted);line-height:1.6;margin-top:9px}.preset-message{color:#127e87}.preset-message:empty{display:none}
       @media(prefers-reduced-motion:reduce){.playing .cone{animation:none}}
-      </style><main class="studio"><header class="top"><div class="brand"><div class="brandmark">≋</div><div><div class="eyebrow">Jouw geluid. Jouw instelling.</div><h1>Multiroom Audio Dashboard</h1><p class="subline">${c.boards.length} speler${c.boards.length===1?'':'s'} · jouw geluid</p></div></div><nav class="nav"><a href="/lovelace/home" data-nav>⌂ Home</a><button data-act="more-group">Speler openen ↗</button></nav></header>
+      </style><main class="studio"><header class="top"><div class="brand"><div class="brandmark">≋</div><div><div class="eyebrow">Jouw geluid. Jouw instelling.</div><h1>Multiroom Audio Dashboard</h1><p class="subline">${c.boards.length} speler${c.boards.length===1?'':'s'} · jouw geluid</p></div></div><nav class="nav"><button class="manage-speakers" data-act="manage-speakers" aria-label="Speakers beheren">⚙ Speakers beheren</button><a href="/lovelace/home" data-nav>⌂ Home</a><button data-act="more-group">Speler openen ↗</button></nav></header><p class="speaker-access-note" role="status" aria-live="polite"></p>
       <div class="overview"><section class="card card-pad"><div class="row"><span class="eyebrow">Nu aan het spelen</span><span class="pill" id="group-state"></span></div><div class="screen"><div class="monitor-meta"><div class="track-icon">♫</div><div class="track"><strong id="title">Even verbinden…</strong><small id="artist">Louder-speakers</small></div><span class="time" id="time">—</span></div><canvas class="spectrum" aria-label="Spectrumdemo; geen meting van het audiosignaal"></canvas><div class="freq"><span>32 Hz</span><span>125</span><span>500</span><span>2k</span><span>8k</span><span>16k</span></div><div class="demo-line"><span>Spectrumdemo · geen live-audioanalyse</span><label><input type="checkbox" id="demo" checked> Animatie</label></div></div><div class="transport"><button data-act="media_previous_track" aria-label="Vorige track">⏮</button><button data-act="media_play_pause" class="play" aria-label="Afspelen of pauzeren" id="play">Ⅱ</button><button data-act="media_next_track" aria-label="Volgende track">⏭</button><button data-act="more-group" aria-label="Speler en wachtrij">☷</button></div></section>
       <section class="card card-pad master"><div class="row"><span class="eyebrow">Master volume</span><span class="small-caps">HOOFDSPELER</span></div><div class="master-wrap"><div class="dial" id="dial"><div class="dial-inner"><b id="master-value">—</b><small>VOLUME %</small></div></div><div>${this._range(c.entity,'Groepsvolume','volume')}<button class="mute-master" data-act="mute-group" id="mute-group">Geluid dempen</button><p class="master-note">Bedient de ingestelde hoofdspeler.<br>Elke speaker is ook apart instelbaar.</p></div></div></section></div>
       <div class="section-line"><h2>Je speakers</h2><p>Live bediening via Home Assistant</p></div><div class="boards">${c.boards.map((b,i)=>`<section class="card card-pad" id="board-${i}"><div class="row board-head"><div><div class="eyebrow">${b.bands.length?'Versterker · ':'Speaker · '}${i+1}</div><h3>${ESC(b.name)}</h3></div><span class="pill" data-status="${i}">—</span></div><div class="board-body">${this._speaker(i)}<div>${this._range(b.player,'Afspeelvolume','volume')}<div class="board-buttons"><button data-act="mute" data-board="${i}" id="mute-${i}">Dempen</button><button data-act="more" data-board="${i}">Speler ↗</button></div><div class="selects">${b.eq?this._select(b.eq,'Equalizer'):''}${b.mixer?this._select(b.mixer,'Kanaalmix'):''}</div></div></div>${this._playerControls(b.player)}<div class="sensors"><span class="sensor">CPU <b id="temp-${i}">—</b></span><span class="sensor">WiFi <b id="wifi-${i}">—</b></span><span class="sensor" id="fault-${i}">Status <b>—</b></span><button data-act="led" data-board="${i}" aria-label="LED van ${ESC(b.name)}" style="font-size:10px;min-height:30px;padding:5px 9px">LED ↗</button><button data-act="fan" data-board="${i}" aria-label="Koeling van ${ESC(b.name)}" style="font-size:10px;min-height:30px;padding:5px 9px">Koeling ↗</button></div></section>`).join('')}</div>
@@ -441,11 +441,58 @@
       else if(el.dataset.kind==='number')await this._call('number','set_value',id,{value:Number(el.value)});
     }
     _more(id) { this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:id},bubbles:true,composed:true})); }
+    _speakerEditorTarget() {
+      // Follow this card's composed ancestors only; never search another dashboard.
+      let node=this,wrapper,view,modern=false,options;
+      while(node){
+        if(node.localName==='hui-card'&&!wrapper)wrapper=node;
+        if(node.localName==='hui-card-options'&&!options)options=node;
+        if(Array.isArray(node.path)&&node.path[0]==='views')modern=true;
+        if(node.localName==='hui-view'){view=node;break;}
+        node=node.parentNode||node.host;
+      }
+      const dashboard=view?.lovelace,index=view?.index;
+      if(!wrapper||!dashboard||!Number.isInteger(index)||index<0||dashboard.mode==='yaml')return null;
+      const config=dashboard.config?.views?.[index],target=wrapper.config;
+      if(!config||config.strategy||dashboard.config.strategy||![`custom:${TAG}`,`custom:${LEGACY_TAG}`].includes(target?.type)||target.entity!==this._cfg.entity)return null;
+      const matches=[];
+      const walk=(item,path,depth=0)=>{
+        if(!item||typeof item!=='object'||depth>32)return;
+        if(item.type)matches.push({item,path});
+        for(const key of ['cards','sections'])if(Array.isArray(item[key]))item[key].forEach((child,i)=>walk(child,[...path,key,i],depth+1));
+      };
+      walk(config,['views',index]);
+      let found=matches.filter(entry=>entry.item===target);
+      if(!found.length){try{const json=JSON.stringify(target);found=matches.filter(entry=>JSON.stringify(entry.item)===json);}catch{return null;}}
+      if(found.length!==1)return null;
+      const path=found[0].path;
+      if(options?.path){
+        // In edit mode use HA's exact path, including its version-specific shape.
+        const p=options.path;
+        if(!Array.isArray(p)||JSON.stringify(p)!==JSON.stringify(modern?path:path.filter(value=>Number.isInteger(value))))return null;
+        return {path:[...p]};
+      }
+      if(modern)return {path};
+      // HA 2026.10 and earlier: direct cards [view,card], sections [view,section,card].
+      const relative=path.slice(2);
+      if(relative.length!==2&&!(relative.length===4&&relative[0]==='sections'))return null;
+      return {path:path.filter(value=>Number.isInteger(value))};
+    }
+    _openSpeakerEditor(){
+      const note=this._q('.speaker-access-note');
+      if(this._hass?.user?.is_admin!==true){note.textContent='Log in als beheerder om speakers op dit dashboard te kiezen.';return;}
+      const target=this._speakerEditorTarget();
+      if(!target){note.textContent='De kaarteditor kon hier niet rechtstreeks worden geopend. Gebruik Dashboard bewerken en daarna Bewerken onder deze kaart.';return;}
+      note.textContent='';
+      // HA loads its own dialog and handles Save/Cancel and dashboard permissions.
+      this.dispatchEvent(new CustomEvent('ll-edit-card',{detail:target,bubbles:true,composed:true}));
+    }
     async _click(e) {
       const link=e.target.closest('a[data-nav]');
       if(link && this._hass){e.preventDefault();history.pushState(null,'',link.getAttribute('href'));window.dispatchEvent(new Event('location-changed'));return;}
       const el=e.target.closest('[data-act]'); if(!el || el.disabled)return;
       const a=el.dataset.act,b=this._cfg.boards[Number(el.dataset.board)||0],g=this._cfg.entity;
+      if(a==='manage-speakers'){this._openSpeakerEditor();return;}
       if(a==='palette'){const palette=PALETTES[el.dataset.palette];if(palette){this._colors={...palette};this._applyColors(true);}return;}
       if(a==='default-colors'){this._colors={...SKINS[this._skin].colors};this._applyColors(true);return;}
       if(a==='tab'){this._tab=Number(el.dataset.board);this._renderEq();this._sync();return;}
@@ -505,6 +552,7 @@
     _sync() {
       if(!this._cfg || !this._q('#title'))return;
       const g=this._st(this._cfg.entity),attrs=g?.attributes||{},playing=g?.state==='playing';
+      const manage=this._q('[data-act=manage-speakers]');manage.disabled=this._hass?.user?.is_admin!==true;manage.title=manage.disabled?'Beheerder nodig om speakers te kiezen':'Kies speakers en hoofdspeler';
       this._q('#title').textContent=attrs.media_title||'Kies je muziek';
       this._q('#artist').textContent=[attrs.media_artist,attrs.media_album_name].filter(Boolean).join(' · ')||attrs.friendly_name||'Je speakers';
       this._q('#group-state').textContent=playing?'● SPEELT':['paused','idle'].includes(g?.state)?'GEREED':'NIET VERBONDEN';
