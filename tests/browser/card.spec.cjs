@@ -124,7 +124,8 @@ test('visual editor searches, retains unavailable players and prevents an empty 
   await e.getByRole('searchbox',{name:'Zoek een speaker'}).fill('');
   await e.getByRole('checkbox',{name:'Links (media_player.speaker_links)',exact:true}).uncheck();
   await e.getByRole('checkbox',{name:'Rechts (media_player.speaker_rechts)',exact:true}).uncheck();
-  await e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true}).uncheck();
+  // The final removal is rejected, so click rather than demanding an unchecked state.
+  await e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true}).click();
   await expect(e.getByRole('alert')).toHaveText('Kies minimaal één en maximaal 32 spelers.');
   await expect(e.getByRole('checkbox',{name:'Nest · testspeler (media_player.test_cast)',exact:true})).toBeChecked();
   await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
