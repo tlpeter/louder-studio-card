@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0-beta.2
+
+- Add actual screenshots of all four styles and appearance settings to the README, using synthetic demo data.
+- Explain where dashboard settings live, how to preserve an existing dashboard, and how HACS displays version-specific documentation and images.
+- Add a visual card editor to search/select Home Assistant speakers and choose a main player without YAML. Preserve existing amplifier EQ, mixer and diagnostic mappings.
+- Capture documentation screenshots and verify editor selection/persistence events without device commands. Audio and device-service dispatch behavior is unchanged.
+
 ## 2.2.0-beta.1
 
 - Rename public project to Multiroom Audio Dashboard; retain legacy card type, resource filename and preferences.

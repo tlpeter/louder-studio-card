@@ -6,4 +6,6 @@ GitHub Actions draait unit-tests op Node 22 en 24, Chromium-tests met desktop- e
 
 CodeQL controleert JavaScript, Gitleaks de volledige Git-historie, npm audit afhankelijkheden. Dependabot controleert updates. Iedere release is gekoppeld aan het exacte commit waarvan de Tests-workflow is geslaagd. Fouten blokkeren de automatische publicatie.
 
+De visuele kaarteditor wordt getest op HA-spelerselectie, zoeken, tijdelijk onbeschikbare spelers, hoofdspelerkeuze, config-changed-events en behoud van bestaande EQ-/mixer-/sensorkoppelingen. Een lege selectie wordt geweigerd. Editoracties mogen geen apparaatopdrachten versturen.
+
 Praktijktests zijn apart vastgelegd in docs/SPEAKER_SUPPORT.md en hardware-issues. GitHub heeft geen toegang tot de speakers en kan die tests niet uitvoeren. Een beta blijft een beta totdat de relevante werkelijke routes zijn getest.

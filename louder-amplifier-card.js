@@ -1,10 +1,11 @@
-/* Multiroom Audio Dashboard v2.2.0-beta.1 — four styles, local colors and Music Assistant audio relay. */
+/* Multiroom Audio Dashboard v2.2.0-beta.2 — four styles, local colors and Music Assistant audio relay. */
 (() => {
   const TAG = 'multiroom-audio-dashboard';
   const LEGACY_TAG = 'louder-amplifier-card';
   if (customElements.get(TAG)) return;
   const ESC = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const VALID = /^[a-z_]+\.[a-z0-9_]+$/;
+  const EDITOR_TAG='multiroom-audio-dashboard-editor';
   const HEX = /^#[0-9a-f]{6}$/i;
   const PALETTES = {
     lime:{name:'Lime',accent:'#b5e147',peak:'#f1a444',background:'#17191f',meter:'#f0e6b9'},
@@ -136,7 +137,61 @@
     zang: {name:'Zang', description:'Minder laag, meer verstaanbaarheid', values:[-4,-3,-2,-2,-1,0,0,1,2,3,3,2,1,0,-1]},
     nacht: {name:'Nacht', description:'Minder bas en zachter hoog', values:[-6,-5,-4,-3,-2,-1,0,0,1,1,1,0,-1,-2,-3]}
   };
+  class MultiroomAudioDashboardEditor extends HTMLElement {
+    constructor(){
+      super();this.attachShadow({mode:'open'});this._known=new Map();
+      this.shadowRoot.addEventListener('change',event=>this._change(event));
+      this.shadowRoot.addEventListener('input',event=>{if(event.target.dataset.search!==undefined){this._filter=event.target.value;this._filterRows();}});
+    }
+    setConfig(config){
+      this._config={...config};
+      for(const item of this._players()){const player=typeof item==='string'?{player:item}:{...item};this._known.set(player.player,player);}
+      this._render();
+    }
+    set hass(hass){this._hass=hass;this._render();}
+    _players(){return this._config?.players??this._config?.boards??(this._config?.entity?[this._config.entity]:[]);}
+    _ids(){return this._players().map(item=>typeof item==='string'?item:item.player);}
+    _change(event){
+      const input=event.target;
+      if(!this._config)return;
+      let next;
+      if(input.dataset.main!==undefined){
+        if(!/^media_player\.[a-z0-9_]+$/.test(input.value))return;
+        next={...this._config,entity:input.value};
+      }else if(input.dataset.player){
+        const id=input.dataset.player;if(!/^media_player\.[a-z0-9_]+$/.test(id))return;
+        const ids=this._ids().filter(value=>value!==id);if(input.checked)ids.push(id);
+        if(!ids.length||ids.length>32){input.checked=!input.checked;this.shadowRoot.querySelector('[role=alert]').textContent='Kies minimaal één en maximaal 32 spelers.';return;}
+        const players=ids.map(player=>({...this._known.get(player),player}));
+        next={...this._config,players};delete next.boards;
+      }else return;
+      this._config=next;this._render();
+      this.dispatchEvent(new CustomEvent('config-changed',{detail:{config:next},bubbles:true,composed:true}));
+    }
+    _filterRows(){
+      const query=(this._filter||'').toLocaleLowerCase();let count=0;
+      this.shadowRoot.querySelectorAll('[data-row]').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase().includes(query);if(!row.hidden)count++;});
+      const empty=this.shadowRoot.querySelector('[data-empty]');if(empty)empty.hidden=count>0;
+    }
+    _render(){
+      if(!this._config)return;
+      const states=this._hass?.states||{},selected=this._ids();
+      const ids=[...new Set([...Object.keys(states).filter(id=>/^media_player\.[a-z0-9_]+$/.test(id)),...selected,this._config.entity].filter(id=>/^media_player\.[a-z0-9_]+$/.test(id||'')))];
+      const label=id=>this._known.get(id)?.name||states[id]?.attributes.friendly_name||id;
+      ids.sort((a,b)=>label(a).localeCompare(label(b))||a.localeCompare(b));
+      const rows=ids.map(id=>({id,name:label(id),offline:!states[id]||['unavailable','unknown'].includes(states[id].state)}));
+      const signature=JSON.stringify([rows,selected,this._config.entity]);if(signature===this._signature)return;this._signature=signature;
+      this.shadowRoot.innerHTML=`<style>:host{display:block;color:var(--primary-text-color,#263746);font:14px system-ui,sans-serif}[hidden]{display:none!important}h3{margin:0 0 8px}p{line-height:1.55;color:var(--secondary-text-color,#637482)}label.field{display:grid;gap:7px;margin:16px 0}input[type=search],select{box-sizing:border-box;width:100%;font:inherit;padding:11px;border:1px solid var(--divider-color,#ccd4da);border-radius:10px;color:inherit;background:var(--card-background-color,#fff)}fieldset{margin:16px 0;border:1px solid var(--divider-color,#ccd4da);border-radius:12px;padding:10px}.players{max-height:360px;overflow:auto}.player{display:flex;align-items:center;gap:12px;padding:12px 6px;border-radius:8px}.player input{width:20px;height:20px;flex-shrink:0}.player span{display:grid;gap:4px;min-width:0}.player small{overflow-wrap:anywhere;color:var(--secondary-text-color,#637482)}[role=alert]{color:var(--error-color,#b3261e);min-height:1.4em}</style><h3>Speakers beheren</h3><p>Kies uit je Home Assistant-spelers. De hoofdspeler of bestaande groep bedient het bovenste afspeelpaneel; aangevinkte speakers krijgen hun eigen bediening.</p><label class="field">Hoofdspeler<select data-main aria-label="Hoofdspeler"><option value="" disabled>Kies een speler of groep</option>${rows.map(row=>`<option value="${ESC(row.id)}" ${row.id===this._config.entity?'selected':''}>${ESC(row.name)}${row.offline?' · niet beschikbaar':''}</option>`).join('')}</select></label><label class="field">Zoek een speaker<input type="search" data-search aria-label="Zoek een speaker" placeholder="Naam of entiteit" value="${ESC(this._filter||'')}"></label><fieldset><legend>Speakers op dit dashboard (${selected.length}/32)</legend><div class="players">${rows.map(row=>`<label class="player" data-row><input type="checkbox" data-player="${ESC(row.id)}" ${selected.includes(row.id)?'checked':''} aria-label="${ESC(row.name+' ('+row.id+')')}"><span><b>${ESC(row.name)}</b><small>${ESC(row.id)}${row.offline?' · niet beschikbaar':''}</small></span></label>`).join('')}<p data-empty hidden>Geen spelers gevonden. Voeg de speaker eerst toe via de passende integratie in Home Assistant en wis eventueel de zoekopdracht.</p></div></fieldset><p>Bestaande EQ-, mixer- en sensorkoppelingen van geselecteerde versterkers blijven behouden. Nieuwe speakers krijgen de functies die hun HA-integratie aanbiedt. De selectie maakt geen audiogroep aan.</p><p>Sla de kaart op met de knop <b>Opslaan</b> van Home Assistant. Kleuren en stijl wijzig je daarna op de kaart via <b>Kleuren & uiterlijk</b>.</p><p role="alert" aria-live="polite"></p>`;
+      this._filterRows();
+    }
+  }
+  if(!customElements.get(EDITOR_TAG))customElements.define(EDITOR_TAG,MultiroomAudioDashboardEditor);
   class MultiroomAudioDashboard extends HTMLElement {
+    static getConfigElement(){return document.createElement(EDITOR_TAG);}
+    static getStubConfig(hass){
+      const entity=Object.keys(hass?.states||{}).find(id=>/^media_player\.[a-z0-9_]+$/.test(id))||'media_player.kies_een_speler';
+      return {entity,players:[entity]};
+    }
     static get AudioRelay(){return AudioRelay;}
     constructor() {
       super(); this.attachShadow({mode:'open'}); this._tab = 0; this._demo = true; this._pending = new Set();
