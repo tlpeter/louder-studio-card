@@ -1,0 +1,22 @@
+<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Louder Studio · voorbeeld</title>
+<style>body{margin:0;background:#edf1f3;font:13px system-ui,sans-serif;color:#516b80}.preview-note{max-width:1344px;margin:15px auto;padding:0 24px;font-size:11px;display:flex;justify-content:space-between;gap:20px}louder-amplifier-card{display:block}details.test{max-width:1280px;margin:15px auto;padding:12px 20px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>
+<div class="preview-note"><span>LOKAAL VOORBEELD · fictieve gegevens</span><span>Alle knoppen op deze voorbeeldpagina zijn gesimuleerd.</span></div>
+<louder-amplifier-card></louder-amplifier-card><details class="test"><summary>Bedieningscontrole · geen opdrachten naar apparaten</summary><pre id="commands">Geen opdrachten.</pre></details>
+<script type="module">
+import './louder-amplifier-card.js';
+const {config,states}=await (await fetch('./fixture.json')).json();
+const card=document.querySelector('louder-amplifier-card');const calls=[];
+const hass={states,locale:{language:'nl'},async callService(domain,service,data,target){
+  calls.push({domain,service,data,target});document.querySelector('#commands').textContent=JSON.stringify(calls,null,2);
+  const s=states[target.entity_id];if(!s)throw Error('Onbekende voorbeeldentiteit');
+  if(domain==='number')s.state=String(data.value);
+  if(domain==='select')s.state=data.option;
+  if(service==='volume_set')s.attributes.volume_level=data.volume_level;
+  if(service==='volume_mute')s.attributes.is_volume_muted=data.is_volume_muted;
+  if(service==='media_play_pause'){const next=s.state==='playing'?'paused':'playing';for(const id of [config.entity,...config.boards.map(b=>b.player)])states[id].state=next;}
+  card.hass={...hass};
+}};
+card.setConfig({...config,preview:true});card.hass=hass;
+document.addEventListener('hass-more-info',e=>{document.querySelector('#commands').textContent='Meer informatie: '+e.detail.entityId;});
+</script></html>
+

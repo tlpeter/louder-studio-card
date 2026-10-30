@@ -1,0 +1,602 @@
+{
+  "config": {
+    "type": "custom:louder-amplifier-card",
+    "entity": "media_player.louder_speakers",
+    "boards": [
+      {
+        "name": "Links",
+        "player": "media_player.speaker_links",
+        "eq": "select.speaker_links_eq_mode",
+        "mixer": "select.speaker_links_mixer_mode",
+        "trim_left": "number.speaker_links_volume_left",
+        "trim_right": "number.speaker_links_volume_right",
+        "temperature": "sensor.speaker_links_speaker_links_cpu_temperature",
+        "wifi": "sensor.speaker_links_speaker_links_wifi_signal",
+        "fault": "binary_sensor.speaker_links_any_faults",
+        "led": "light.speaker_links_speaker_links_led",
+        "fan": "fan.speaker_links_cooling_fan",
+        "bands": [
+          {
+            "entity": "number.speaker_links_left_20hz",
+            "label": "20"
+          },
+          {
+            "entity": "number.speaker_links_left_31_5hz",
+            "label": "31,5"
+          },
+          {
+            "entity": "number.speaker_links_left_50hz",
+            "label": "50"
+          },
+          {
+            "entity": "number.speaker_links_left_80hz",
+            "label": "80"
+          },
+          {
+            "entity": "number.speaker_links_left_125hz",
+            "label": "125"
+          },
+          {
+            "entity": "number.speaker_links_left_200hz",
+            "label": "200"
+          },
+          {
+            "entity": "number.speaker_links_left_315hz",
+            "label": "315"
+          },
+          {
+            "entity": "number.speaker_links_left_500hz",
+            "label": "500"
+          },
+          {
+            "entity": "number.speaker_links_left_800hz",
+            "label": "800"
+          },
+          {
+            "entity": "number.speaker_links_left_1250hz",
+            "label": "1,25k"
+          },
+          {
+            "entity": "number.speaker_links_left_2000hz",
+            "label": "2k"
+          },
+          {
+            "entity": "number.speaker_links_left_3150hz",
+            "label": "3,15k"
+          },
+          {
+            "entity": "number.speaker_links_left_5000hz",
+            "label": "5k"
+          },
+          {
+            "entity": "number.speaker_links_left_8000hz",
+            "label": "8k"
+          },
+          {
+            "entity": "number.speaker_links_left_16000hz",
+            "label": "16k"
+          }
+        ]
+      },
+      {
+        "name": "Rechts",
+        "player": "media_player.speaker_rechts",
+        "eq": "select.speaker_rechts_eq_mode",
+        "mixer": "select.speaker_rechts_mixer_mode",
+        "trim_left": "number.speaker_rechts_volume_left",
+        "trim_right": "number.speaker_rechts_volume_right",
+        "temperature": "sensor.speaker_rechts_speaker_rechts_cpu_temperature",
+        "wifi": "sensor.speaker_rechts_speaker_rechts_wifi_signal",
+        "fault": "binary_sensor.speaker_rechts_any_faults",
+        "led": "light.speaker_rechts_speaker_rechts_led",
+        "fan": "fan.speaker_rechts_cooling_fan",
+        "bands": [
+          {
+            "entity": "number.speaker_rechts_left_20hz",
+            "label": "20"
+          },
+          {
+            "entity": "number.speaker_rechts_left_31_5hz",
+            "label": "31,5"
+          },
+          {
+            "entity": "number.speaker_rechts_left_50hz",
+            "label": "50"
+          },
+          {
+            "entity": "number.speaker_rechts_left_80hz",
+            "label": "80"
+          },
+          {
+            "entity": "number.speaker_rechts_left_125hz",
+            "label": "125"
+          },
+          {
+            "entity": "number.speaker_rechts_left_200hz",
+            "label": "200"
+          },
+          {
+            "entity": "number.speaker_rechts_left_315hz",
+            "label": "315"
+          },
+          {
+            "entity": "number.speaker_rechts_left_500hz",
+            "label": "500"
+          },
+          {
+            "entity": "number.speaker_rechts_left_800hz",
+            "label": "800"
+          },
+          {
+            "entity": "number.speaker_rechts_left_1250hz",
+            "label": "1,25k"
+          },
+          {
+            "entity": "number.speaker_rechts_left_2000hz",
+            "label": "2k"
+          },
+          {
+            "entity": "number.speaker_rechts_left_3150hz",
+            "label": "3,15k"
+          },
+          {
+            "entity": "number.speaker_rechts_left_5000hz",
+            "label": "5k"
+          },
+          {
+            "entity": "number.speaker_rechts_left_8000hz",
+            "label": "8k"
+          },
+          {
+            "entity": "number.speaker_rechts_left_16000hz",
+            "label": "16k"
+          }
+        ]
+      }
+    ]
+  },
+  "states": {
+    "media_player.louder_speakers": {
+      "entity_id": "media_player.louder_speakers",
+      "state": "playing",
+      "attributes": {
+        "volume_level": 0.38,
+        "is_volume_muted": false,
+        "media_title": "Demo track",
+        "media_artist": "Louder Studio",
+        "media_album_name": "Synthetic test audio",
+        "media_duration": 240,
+        "media_position": 0
+      }
+    },
+    "media_player.speaker_links": {
+      "entity_id": "media_player.speaker_links",
+      "state": "playing",
+      "attributes": {
+        "volume_level": 0.38,
+        "is_volume_muted": false,
+        "media_title": "Demo track",
+        "media_artist": "Louder Studio",
+        "media_album_name": "Synthetic test audio",
+        "media_duration": 240,
+        "media_position": 0
+      }
+    },
+    "select.speaker_links_eq_mode": {
+      "entity_id": "select.speaker_links_eq_mode",
+      "state": "EQ 15 Band",
+      "attributes": {
+        "options": [
+          "Off",
+          "EQ 15 Band"
+        ]
+      }
+    },
+    "select.speaker_links_mixer_mode": {
+      "entity_id": "select.speaker_links_mixer_mode",
+      "state": "MONO",
+      "attributes": {
+        "options": [
+          "STEREO",
+          "STEREO_INVERSE",
+          "MONO",
+          "RIGHT",
+          "LEFT"
+        ]
+      }
+    },
+    "number.speaker_links_left_20hz": {
+      "entity_id": "number.speaker_links_left_20hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_31_5hz": {
+      "entity_id": "number.speaker_links_left_31_5hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_50hz": {
+      "entity_id": "number.speaker_links_left_50hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_80hz": {
+      "entity_id": "number.speaker_links_left_80hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_125hz": {
+      "entity_id": "number.speaker_links_left_125hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_200hz": {
+      "entity_id": "number.speaker_links_left_200hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_315hz": {
+      "entity_id": "number.speaker_links_left_315hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_500hz": {
+      "entity_id": "number.speaker_links_left_500hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_800hz": {
+      "entity_id": "number.speaker_links_left_800hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_1250hz": {
+      "entity_id": "number.speaker_links_left_1250hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_2000hz": {
+      "entity_id": "number.speaker_links_left_2000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_3150hz": {
+      "entity_id": "number.speaker_links_left_3150hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_5000hz": {
+      "entity_id": "number.speaker_links_left_5000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_8000hz": {
+      "entity_id": "number.speaker_links_left_8000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_left_16000hz": {
+      "entity_id": "number.speaker_links_left_16000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_links_volume_left": {
+      "entity_id": "number.speaker_links_volume_left",
+      "state": "0",
+      "attributes": {
+        "min": -24,
+        "max": 24,
+        "step": 1
+      }
+    },
+    "number.speaker_links_volume_right": {
+      "entity_id": "number.speaker_links_volume_right",
+      "state": "0",
+      "attributes": {
+        "min": -24,
+        "max": 24,
+        "step": 1
+      }
+    },
+    "sensor.speaker_links_speaker_links_cpu_temperature": {
+      "entity_id": "sensor.speaker_links_speaker_links_cpu_temperature",
+      "state": "50",
+      "attributes": {}
+    },
+    "sensor.speaker_links_speaker_links_wifi_signal": {
+      "entity_id": "sensor.speaker_links_speaker_links_wifi_signal",
+      "state": "-50",
+      "attributes": {}
+    },
+    "binary_sensor.speaker_links_any_faults": {
+      "entity_id": "binary_sensor.speaker_links_any_faults",
+      "state": "off",
+      "attributes": {}
+    },
+    "light.speaker_links_speaker_links_led": {
+      "entity_id": "light.speaker_links_speaker_links_led",
+      "state": "off",
+      "attributes": {}
+    },
+    "fan.speaker_links_cooling_fan": {
+      "entity_id": "fan.speaker_links_cooling_fan",
+      "state": "off",
+      "attributes": {}
+    },
+    "media_player.speaker_rechts": {
+      "entity_id": "media_player.speaker_rechts",
+      "state": "playing",
+      "attributes": {
+        "volume_level": 0.38,
+        "is_volume_muted": false,
+        "media_title": "Demo track",
+        "media_artist": "Louder Studio",
+        "media_album_name": "Synthetic test audio",
+        "media_duration": 240,
+        "media_position": 0
+      }
+    },
+    "select.speaker_rechts_eq_mode": {
+      "entity_id": "select.speaker_rechts_eq_mode",
+      "state": "EQ 15 Band",
+      "attributes": {
+        "options": [
+          "Off",
+          "EQ 15 Band"
+        ]
+      }
+    },
+    "select.speaker_rechts_mixer_mode": {
+      "entity_id": "select.speaker_rechts_mixer_mode",
+      "state": "MONO",
+      "attributes": {
+        "options": [
+          "STEREO",
+          "STEREO_INVERSE",
+          "MONO",
+          "RIGHT",
+          "LEFT"
+        ]
+      }
+    },
+    "number.speaker_rechts_left_20hz": {
+      "entity_id": "number.speaker_rechts_left_20hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_31_5hz": {
+      "entity_id": "number.speaker_rechts_left_31_5hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_50hz": {
+      "entity_id": "number.speaker_rechts_left_50hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_80hz": {
+      "entity_id": "number.speaker_rechts_left_80hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_125hz": {
+      "entity_id": "number.speaker_rechts_left_125hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_200hz": {
+      "entity_id": "number.speaker_rechts_left_200hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_315hz": {
+      "entity_id": "number.speaker_rechts_left_315hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_500hz": {
+      "entity_id": "number.speaker_rechts_left_500hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_800hz": {
+      "entity_id": "number.speaker_rechts_left_800hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_1250hz": {
+      "entity_id": "number.speaker_rechts_left_1250hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_2000hz": {
+      "entity_id": "number.speaker_rechts_left_2000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_3150hz": {
+      "entity_id": "number.speaker_rechts_left_3150hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_5000hz": {
+      "entity_id": "number.speaker_rechts_left_5000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_8000hz": {
+      "entity_id": "number.speaker_rechts_left_8000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_left_16000hz": {
+      "entity_id": "number.speaker_rechts_left_16000hz",
+      "state": "0",
+      "attributes": {
+        "min": -15,
+        "max": 15,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_volume_left": {
+      "entity_id": "number.speaker_rechts_volume_left",
+      "state": "0",
+      "attributes": {
+        "min": -24,
+        "max": 24,
+        "step": 1
+      }
+    },
+    "number.speaker_rechts_volume_right": {
+      "entity_id": "number.speaker_rechts_volume_right",
+      "state": "0",
+      "attributes": {
+        "min": -24,
+        "max": 24,
+        "step": 1
+      }
+    },
+    "sensor.speaker_rechts_speaker_rechts_cpu_temperature": {
+      "entity_id": "sensor.speaker_rechts_speaker_rechts_cpu_temperature",
+      "state": "50",
+      "attributes": {}
+    },
+    "sensor.speaker_rechts_speaker_rechts_wifi_signal": {
+      "entity_id": "sensor.speaker_rechts_speaker_rechts_wifi_signal",
+      "state": "-50",
+      "attributes": {}
+    },
+    "binary_sensor.speaker_rechts_any_faults": {
+      "entity_id": "binary_sensor.speaker_rechts_any_faults",
+      "state": "off",
+      "attributes": {}
+    },
+    "light.speaker_rechts_speaker_rechts_led": {
+      "entity_id": "light.speaker_rechts_speaker_rechts_led",
+      "state": "off",
+      "attributes": {}
+    },
+    "fan.speaker_rechts_cooling_fan": {
+      "entity_id": "fan.speaker_rechts_cooling_fan",
+      "state": "off",
+      "attributes": {}
+    }
+  }
+}
+

@@ -1,0 +1,497 @@
+/* Louder Studio v2.1.0 — four styles, local colors and Music Assistant audio relay. */
+(() => {
+  const TAG = 'louder-amplifier-card';
+  if (customElements.get(TAG)) return;
+  const ESC = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const VALID = /^[a-z_]+\.[a-z0-9_]+$/;
+  const HEX = /^#[0-9a-f]{6}$/i;
+  const PALETTES = {
+    lime:{name:'Lime',accent:'#b5e147',peak:'#f1a444',background:'#17191f',meter:'#f0e6b9'},
+    paars:{name:'Paars',accent:'#bf8cff',peak:'#ff709c',background:'#17141f',meter:'#efe0ff'},
+    oceaan:{name:'Oceaan',accent:'#46c9ed',peak:'#9a8cff',background:'#111a25',meter:'#d8f2ff'},
+    koper:{name:'Koper',accent:'#ecb26e',peak:'#ff7461',background:'#1d1916',meter:'#f4dfaa'}
+  };
+  const COLOR_KEYS=['accent','peak','background','meter'];
+  const SKINS={
+    modern:{name:'Modern spectrum',visual:'spectrum',colors:PALETTES.lime},
+    retro:{name:'Retro spectrum',visual:'spectrum',colors:PALETTES.lime},
+    vintage:{name:'Vintage hifi',visual:'analog',colors:{accent:'#ad6c2a',peak:'#b36b28',background:'#c7cac2',meter:'#f2e4b9'}},
+    midnight:{name:'Midnight studio',visual:'spectrum',colors:{accent:'#e0a35d',peak:'#f57b69',background:'#131313',meter:'#f4dfaa'}}
+  };
+  const rgb = h => [1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const mix = (a,b,t) => '#'+rgb(a).map((v,i)=>Math.round(v+(rgb(b)[i]-v)*t).toString(16).padStart(2,'0')).join('');
+  const luminance = h => rgb(h).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
+  const contrast = (a,b) => {const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+  const ink = h => contrast(h,'#ffffff')>contrast(h,'#111111')?'#ffffff':'#111111';
+  class AudioRelay {
+    constructor(hass,entity,onState){this.hass=hass;this.entity=entity;this.onState=onState;this.frames=[];this.samples=[];this.offset=null;this.closed=false;}
+    static analyze(bytes){
+      const n=1024,re=new Float64Array(n),im=new Float64Array(n);let energy=0,mean=0;
+      for(let i=0;i<n;i++){const v=(bytes[i]-128)/127;re[i]=v;mean+=v/n;}
+      for(let i=0;i<n;i++){const v=re[i]-mean;energy+=v*v;re[i]=v*(.5-.5*Math.cos(2*Math.PI*i/(n-1)));}
+      for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){const v=re[i];re[i]=re[j];re[j]=v;}}
+      for(let len=2;len<=n;len<<=1){const angle=-2*Math.PI/len;for(let start=0;start<n;start+=len)for(let j=0;j<len/2;j++){
+        const a=start+j,b=a+len/2,co=Math.cos(angle*j),si=Math.sin(angle*j),tr=re[b]*co-im[b]*si,ti=re[b]*si+im[b]*co;
+        re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;
+      }}
+      const bars=[];for(let i=0;i<48;i++){const lo=Math.max(1,Math.floor(511**(i/48))),hi=Math.min(512,Math.max(lo+1,Math.ceil(511**((i+1)/48))));let peak=0;
+        for(let k=lo;k<hi;k++)peak=Math.max(peak,Math.hypot(re[k],im[k])*4/n);
+        bars.push(Math.max(0,Math.min(1,(20*Math.log10(Math.max(peak,.001))+60)/60)));
+      }
+      return {rms:Math.min(1,Math.sqrt(energy/n)),bars};
+    }
+    async connect(){
+      this.onState('connecting');
+      const registry=this.hass.callWS({type:'config/entity_registry/get',entity_id:this.entity}).catch(error=>({registryError:error}));
+      let info,session;
+      try{[info,session]=await Promise.all([
+        this.hass.callWS({type:'supervisor/api',endpoint:'/addons/d5369777_music_assistant/info',method:'get'}),
+        this.hass.callWS({type:'supervisor/api',endpoint:'/ingress/session',method:'post'})
+      ]);}catch(err){
+        if(err?.code!=='unknown_command')throw err;
+        [info,session]=await Promise.all([
+          this.hass.callWS({type:'supervisor/ingress/info',slug:'d5369777_music_assistant'}),
+          this.hass.callWS({type:'supervisor/ingress/session',slug:'d5369777_music_assistant'})
+        ]);
+      }
+      const entity=await registry,entry=info?.ingress_url||info?.ingress_entry;
+      if(entity.registryError)throw entity.registryError;
+      if(this.closed)return;
+      if(!session?.session||!entry||entity?.platform!=='music_assistant'||typeof entity.unique_id!=='string')throw Error('Music Assistant niet beschikbaar.');
+      const url=new URL(entry,location.origin);
+      if(url.origin!==location.origin||!url.pathname.startsWith('/api/hassio_ingress/'))throw Error('Geen geldige Home Assistant-appverbinding.');
+      document.cookie=`ingress_session=${session.session};path=/api/hassio_ingress/;SameSite=Strict${location.protocol==='https:'?';Secure':''}`;
+      url.pathname=url.pathname.replace(/\/$/,'')+'/milkdrop_visualizer';url.search='';url.searchParams.set('player',entity.unique_id);url.protocol=location.protocol==='https:'?'wss:':'ws:';
+      const ws=this.ws=new WebSocket(url);ws.binaryType='arraybuffer';
+      ws.onopen=()=>{if(this.closed){ws.close();return;}let burst=0;const ping=()=>{if(ws.readyState===1)ws.send(JSON.stringify({type:'client/time',payload:{client_transmitted:Math.round(performance.now()*1000)}}));};ping();this.timer=setInterval(()=>{ping();if(++burst>=8){clearInterval(this.timer);this.timer=setInterval(ping,5000);}},250);};
+      ws.onmessage=e=>{if(!this.closed)this.receive(e.data);};
+      ws.onclose=e=>{clearInterval(this.timer);this.frames=[];this.current=null;this.offset=null;if(!this.closed)this.onState(e.code===4001?'denied':'unavailable');};
+      ws.onerror=()=>{if(!this.closed)this.onState('unavailable');};
+    }
+    receive(data){
+      const now=Math.round(performance.now()*1000);
+      if(typeof data==='string'){
+        let msg;try{msg=JSON.parse(data);}catch{return;}
+        if(msg.type==='server/time'){
+          const p=msg.payload;if(!p||![p.client_transmitted,p.server_received,p.server_transmitted].every(Number.isFinite))return;
+          const delay=now-p.client_transmitted-(p.server_transmitted-p.server_received);
+          if(delay<0||delay>2000000)return;
+          this.samples.push({delay,offset:((p.server_received-p.client_transmitted)+(p.server_transmitted-now))/2});this.samples=this.samples.slice(-8);
+          this.offset=this.samples.reduce((a,b)=>a.delay<b.delay?a:b).offset;
+        }else if(['stream/clear','stream/end'].includes(msg.type)){this.frames=[];this.current=null;this.onState('waiting');}
+        else if(msg.type==='stream/start')this.onState('waiting');
+        else if(msg.type==='error')this.onState('unavailable');
+        return;
+      }
+      if(!(data instanceof ArrayBuffer)||data.byteLength!==1033)return;
+      const view=new DataView(data);if(view.getUint8(0)!==22)return;
+      const timestamp=Number(view.getBigInt64(1,false));if(!Number.isSafeInteger(timestamp))return;
+      this.frames.push({timestamp,bytes:new Uint8Array(data,9).slice()});
+      if(this.frames.length>1&&this.frames.at(-2).timestamp>timestamp)this.frames.sort((a,b)=>a.timestamp-b.timestamp);
+      if(this.frames.length>512)this.frames.splice(0,this.frames.length-512);
+    }
+    currentLevels(){
+      if(this.offset===null)return null;const now=performance.now()*1000+this.offset;
+      let latest;while(this.frames.length&&this.frames[0].timestamp<=now)latest=this.frames.shift();
+      if(latest)this.current={timestamp:latest.timestamp,levels:AudioRelay.analyze(latest.bytes)};
+      if(!this.current||now-this.current.timestamp>250000)return null;
+      return this.current.levels;
+    }
+    close(){this.closed=true;clearInterval(this.timer);if(this.ws?.readyState===1)this.ws.send(JSON.stringify({type:'client/goodbye',payload:{reason:'user_request'}}));this.ws?.close();this.frames=[];this.current=null;}
+  }
+  const RETRO_CSS = `
+    :host{--accent:var(--retro-accent);--ink:var(--retro-ink);--muted:var(--retro-muted);--line:var(--retro-line);font-family:var(--paper-font-body1_-_font-family,Inter,system-ui,sans-serif);color-scheme:var(--retro-scheme)}
+    .studio{background:var(--retro-bg);border:1px solid var(--retro-line);border-radius:24px;padding:0 20px 24px;max-width:1450px;color:var(--ink)}
+    .top{padding:17px 0;border-bottom:1px solid var(--retro-line);margin-bottom:14px;gap:16px}.brandmark{background:var(--retro-panel);color:var(--accent);border-radius:12px;border:1px solid var(--line)}h1{font-size:24px;letter-spacing:-.5px;text-transform:none}.eyebrow{font-size:11px;letter-spacing:1.4px}.subline{font-size:11px}.nav{flex-wrap:wrap}.nav a,.nav button{background:var(--retro-panel);border:1px solid var(--line);border-radius:999px;color:var(--ink);font-size:11px;padding:9px 12px}
+    .retro-rack{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}.retro-deck{display:grid;gap:14px;min-width:0}.boards{display:grid;grid-template-columns:1fr;gap:12px;min-width:0}.card{background:var(--retro-panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 6px 22px color-mix(in srgb,var(--retro-bg),#000000 24%)}.card-pad{padding:18px}.board-body{display:block;margin-top:15px}.speaker-art{display:none}.board-head h3{font-size:18px}.board-buttons{margin-top:9px}.board-buttons button{border-radius:10px}.selects{margin-top:11px}.sensors{border-color:var(--line);gap:6px;margin-top:12px;padding-top:11px}.sensor{background:var(--retro-bg);border-radius:10px;font-size:11px;color:var(--muted)}.sensor b{color:var(--ink)}
+    button,select{background:var(--retro-panel);border:1px solid var(--line);border-radius:10px;color:var(--ink)}button:hover:not(:disabled){background:color-mix(in srgb,var(--retro-panel),var(--ink) 8%)}input[type=range]{accent-color:var(--accent)}.select-field{font-size:11px}select{font-size:12px}.range-field>span{font-size:12px}.range-field output{color:var(--ink)}
+    .screen{background:#0b100b;border:1px solid var(--line);border-radius:16px;color:var(--retro-screen-ink);padding:18px;margin-top:14px}.screen:after{display:none}.track strong{font-size:19px;letter-spacing:.2px}.track small,.time{color:var(--retro-screen-muted)}.track-icon{background:#172216;color:var(--retro-screen-ink);border-radius:10px}.spectrum{height:125px;margin-top:22px}.freq,.demo-line{color:var(--retro-screen-muted);font-size:11px;letter-spacing:0}.demo-line input{accent-color:var(--retro-bar)}.transport{justify-content:flex-start}.transport button{border-radius:10px}.transport .play{background:var(--accent);color:var(--retro-accent-ink);border-color:var(--accent)}.transport .play:hover{background:var(--accent);filter:brightness(1.08)}
+    .master{text-align:left}.master .dial,.master-note,.master .small-caps{display:none}.master-wrap{display:block}.master .row{margin-bottom:8px}.master-wrap>div:last-child{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:end}.master .mute-master{margin:0;min-height:40px;font-size:11px}.master .range-field{text-align:left}.master .range-field input{margin-bottom:9px}
+    .pill,.pill.dim{background:var(--retro-bg);color:var(--accent);border-radius:999px;font-size:10px}.pill.dim{color:var(--muted)}.eq{margin-top:16px}.eq-head{gap:12px}.eq-tools{flex-wrap:wrap}.tabs{border-color:var(--line);border-radius:10px}.tabs button{color:var(--ink);border-radius:12px}.tabs button[aria-pressed=true],.preset-buttons button[aria-pressed=true]{background:var(--accent);color:var(--retro-accent-ink);border-color:var(--accent)}.presets{background:var(--retro-bg);border:1px solid var(--line);border-radius:12px}.preset-buttons button{border-radius:999px;font-size:12px}.preset-heading b{color:var(--ink)}.preset-description,.preset-message{font-size:11px}.preset-message{color:var(--ink)}.band{background:transparent;border-radius:0}.band output,.band .hz{color:var(--muted);font-size:11px}.band input{accent-color:var(--accent);height:118px}.eq-axis{color:var(--muted);font-size:11px;letter-spacing:.7px}.advanced{border-color:var(--line)}summary{color:var(--ink)}.foot{color:var(--muted);font-size:11px}.foot b{color:var(--ink)}.error{border:1px solid #d47b5d;background:var(--retro-panel);color:var(--ink);border-radius:10px}
+    .appearance{margin:0 0 16px;border:1px solid var(--line);border-radius:14px;background:var(--retro-panel);padding:13px 16px}.appearance summary{font-size:12px;color:var(--ink);min-height:22px}.appearance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding-top:15px}.color-field{font-size:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.color-field input{width:52px;height:38px;padding:2px;border:1px solid var(--line);background:var(--retro-bg);border-radius:10px}.color-field span{flex-basis:100%;color:var(--muted)}.color-field output{font-size:11px;color:var(--ink)}.color-presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}.color-presets button{font-size:12px;min-height:36px}.color-note,.color-status{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}.color-status:empty{display:none}
+    @media(max-width:900px){.studio{padding:0 16px 20px}.retro-rack{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}.card-pad{padding:14px}.monitor-meta{gap:10px}.time{display:none}.track-icon{display:none}}
+    @media(max-width:700px){.retro-rack{grid-template-columns:1fr}.top{flex-wrap:wrap}.nav{width:100%}.appearance-grid{grid-template-columns:1fr}.color-field span{flex-basis:auto;min-width:135px}.studio{padding:0 10px 20px}.master-wrap>div:last-child{grid-template-columns:1fr}.master .mute-master{width:auto;justify-self:start}.board-body{display:block}.track strong{font-size:17px}.demo-line{font-size:10px}.eq-head{align-items:flex-start;flex-direction:column}.foot{font-size:11px}.brandmark{width:36px;height:36px}.brand{gap:9px}h1{font-size:20px}.eq-bands{min-width:750px}}
+  `;
+  const SKIN_CSS=`
+    [hidden]{display:none!important}.appearance-selects{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.appearance-selects label{display:grid;gap:7px;color:var(--muted);font-size:12px}.appearance-selects select{font-size:12px}.appearance-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.color-note{max-width:75ch}
+    .screen{background:var(--retro-screen-bg)}.analog-meters{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.analog-meter{min-width:0;background:var(--retro-meter-bg);color:var(--retro-meter-ink);border:3px solid color-mix(in srgb,var(--retro-meter-ink),var(--retro-meter-bg) 30%);border-radius:12px;padding:5px;box-shadow:inset 0 0 25px color-mix(in srgb,var(--retro-meter-needle),transparent 83%)}.analog-meter svg{width:100%;height:auto;display:block}.meter-scale{fill:none;stroke:currentColor;stroke-width:1}.analog-meter text{fill:currentColor;font:11px ui-monospace,Consolas,monospace}.analog-meter .meter-title{font-size:14px;letter-spacing:2px}.vu-needle{stroke:var(--retro-meter-needle);stroke-width:2.5;stroke-linecap:round}.meter-pivot{fill:currentColor}
+    .studio[data-skin=retro]{border:3px ridge var(--line);border-radius:5px;font-family:ui-monospace,Consolas,monospace}.studio[data-skin=retro] .card{border:2px ridge var(--line);border-radius:2px;box-shadow:none}.studio[data-skin=retro] button,.studio[data-skin=retro] select,.studio[data-skin=retro] .nav a{border:2px outset var(--line);border-radius:2px}.studio[data-skin=retro] .screen{border:3px inset var(--line);border-radius:0}.studio[data-skin=retro] .presets,.studio[data-skin=retro] .appearance,.studio[data-skin=retro] .tabs{border-radius:2px}.studio[data-skin=retro] h1{text-transform:uppercase;letter-spacing:1px;font-size:22px}
+    .studio[data-skin=vintage]{background:repeating-linear-gradient(0deg,#ffffff0a 0px,#ffffff0a 1px,#00000004 1px,#00000004 3px),var(--retro-bg);border-left:10px solid color-mix(in srgb,var(--accent),#2f1d12 75%);border-right:10px solid color-mix(in srgb,var(--accent),#2f1d12 75%)}.studio[data-skin=vintage] h1{font-family:Georgia,serif;font-style:italic;font-weight:500;font-size:30px}.studio[data-skin=vintage] .retro-rack{grid-template-columns:1fr}.studio[data-skin=vintage] .retro-deck{grid-template-columns:minmax(0,1.8fr) minmax(200px,1fr);gap:18px}.studio[data-skin=vintage] .boards{grid-template-columns:1fr 1fr}.studio[data-skin=vintage] .screen{color:var(--ink)}.studio[data-skin=vintage] .track strong{color:var(--ink)}.studio[data-skin=vintage] .track small,.studio[data-skin=vintage] .time,.studio[data-skin=vintage] .freq,.studio[data-skin=vintage] .demo-line{color:var(--muted)}.studio[data-skin=vintage] .track-icon{display:none}.studio[data-skin=vintage] .master{text-align:center}.studio[data-skin=vintage] .master .dial{display:grid;margin:18px auto 20px;background:conic-gradient(from 225deg,var(--accent) calc(var(--vol,0)*2.7deg),var(--line) 0deg 270deg,transparent 270deg)}.studio[data-skin=vintage] .dial:before{background:var(--retro-panel)}.studio[data-skin=vintage] .dial-inner{background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--retro-panel),var(--ink) 10%),var(--retro-bg));border-color:var(--line)}.studio[data-skin=vintage] .dial-inner small{color:var(--muted)}.studio[data-skin=vintage] .master-wrap>div:last-child{display:block}.studio[data-skin=vintage] .master .mute-master{margin-top:12px}
+    .studio[data-skin=midnight] .retro-rack{grid-template-columns:1fr}.studio[data-skin=midnight] .retro-deck{grid-template-columns:minmax(0,1.7fr) minmax(220px,1fr);align-items:center;gap:24px}.studio[data-skin=midnight] .boards{grid-template-columns:1fr 1fr}.studio[data-skin=midnight] .retro-deck>.card{background:transparent;box-shadow:none;border-color:transparent}.studio[data-skin=midnight] .screen{background:transparent;border-color:transparent;padding:0;color:var(--ink)}.studio[data-skin=midnight] .track strong{font-size:28px;color:var(--ink)}.studio[data-skin=midnight] .track small,.studio[data-skin=midnight] .time,.studio[data-skin=midnight] .freq,.studio[data-skin=midnight] .demo-line{color:var(--muted)}.studio[data-skin=midnight] .spectrum{height:65px}.studio[data-skin=midnight] .track-icon{display:grid;width:84px;height:84px;border-radius:50%;font-size:0;background:repeating-radial-gradient(circle,var(--retro-bg) 0px,var(--retro-bg) 3px,var(--line) 4px,var(--retro-bg) 5px)}.studio[data-skin=midnight] .track-icon:after{content:'♫';display:grid;place-items:center;font-size:23px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--retro-accent-ink)}
+    @media(max-width:900px){.appearance-grid{grid-template-columns:1fr 1fr}.studio[data-skin=vintage] .retro-deck{grid-template-columns:minmax(0,1.6fr) minmax(180px,1fr)}.analog-meters{gap:8px}.analog-meter{padding:2px}}
+    @media(max-width:700px){.appearance-selects,.appearance-grid{grid-template-columns:1fr}.studio[data-skin=vintage] .retro-deck,.studio[data-skin=midnight] .retro-deck,.studio[data-skin=vintage] .boards,.studio[data-skin=midnight] .boards{grid-template-columns:1fr}.studio[data-skin=vintage]{border-left-width:6px;border-right-width:6px}.studio[data-skin=vintage] h1{font-size:25px}.studio[data-skin=vintage] .master .dial{margin:12px 0 16px}.studio[data-skin=vintage] .master-wrap{display:grid;grid-template-columns:130px minmax(0,1fr);gap:14px;align-items:center}.studio[data-skin=vintage] .master .mute-master{width:100%;font-size:11px}.studio[data-skin=midnight] .track strong{font-size:23px}.studio[data-skin=midnight] .track-icon{width:62px;height:62px}.studio[data-skin=midnight] .retro-deck{gap:0}}
+  `;
+  // Custom starting curves in dB, ordered by the board's exposed frequencies.
+  const FREQUENCIES = ['20hz','31_5hz','50hz','80hz','125hz','200hz','315hz','500hz','800hz','1250hz','2000hz','3150hz','5000hz','8000hz','16000hz'];
+  const PRESETS = {
+    vlak: {name:'Vlak', description:'Neutraal · alle banden op 0 dB', values:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+    bas: {name:'Bas', description:'Extra laag en een stevigere bas', values:[2,3,5,6,5,3,1,0,0,0,0,0,0,0,0]},
+    disco: {name:'Disco', description:'Stevige bas en sprankelend hoog', values:[1,3,4,4,3,1,0,-1,-2,-1,0,1,2,3,2]},
+    rock: {name:'Rock', description:'Kick, gitaren en wat extra helderheid', values:[0,1,2,3,2,0,-1,-1,0,1,2,3,2,1,0]},
+    pop: {name:'Pop', description:'Stemmen en melodie wat meer naar voren', values:[0,1,2,2,1,0,0,1,2,3,2,1,1,1,0]},
+    jazz: {name:'Jazz', description:'Warm laag met een open midden', values:[0,1,2,2,1,0,0,1,1,1,1,0,1,2,1]},
+    klassiek: {name:'Klassiek', description:'Subtiel meer warmte en lucht', values:[0,0,1,1,1,0,0,0,0,0,0,1,1,2,1]},
+    zang: {name:'Zang', description:'Minder laag, meer verstaanbaarheid', values:[-4,-3,-2,-2,-1,0,0,1,2,3,3,2,1,0,-1]},
+    nacht: {name:'Nacht', description:'Minder bas en zachter hoog', values:[-6,-5,-4,-3,-2,-1,0,0,1,1,1,0,-1,-2,-3]}
+  };
+  class LouderAmplifierCard extends HTMLElement {
+    static get AudioRelay(){return AudioRelay;}
+    constructor() {
+      super(); this.attachShadow({mode:'open'}); this._tab = 0; this._demo = true; this._pending = new Set();
+      this._reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+      this._visibilityChanged=()=>{if(document.hidden)this._stopLive();this._animate();};
+      this.shadowRoot.addEventListener('change',e=>this._change(e));
+      this.shadowRoot.addEventListener('input',e=>this._input(e));
+      this.shadowRoot.addEventListener('click',e=>this._click(e));
+    }
+    setConfig(c) {
+      this._stopLive();this._liveRetryAt=0;
+      if (!c.entity || !VALID.test(c.entity) || !Array.isArray(c.boards) || c.boards.length !== 2) throw Error('Choose a group and two boards');
+      const ids = [c.entity];
+      for (const b of c.boards) {
+        if (!Array.isArray(b.bands) || !b.bands.length) throw Error('Choose the equalizer bands');
+        ids.push(b.player,b.eq,b.mixer,b.trim_left,b.trim_right,b.temperature,b.wifi,b.fault,b.led,b.fan);
+        ids.push(...b.bands.map(x=>x.entity));
+      }
+      if (ids.some(id=>!VALID.test(id || ''))) throw Error('Invalid entity in Louder Studio');
+      this._cfg = c; this._allowed = new Set(ids); this._loadColors(); this._build(); this._sync();
+    }
+    set hass(h) { this._hass = h; if(this._cfg) this._sync(); }
+    get hass() { return this._hass; }
+    getCardSize() { return 16; }
+    connectedCallback() { document.addEventListener('visibilitychange',this._visibilityChanged);this._observe(); }
+    disconnectedCallback() { document.removeEventListener('visibilitychange',this._visibilityChanged);cancelAnimationFrame(this._raf);clearTimeout(this._timer);this._stopLive();this._observer?.disconnect(); }
+    _observe() {
+      this._observer?.disconnect();
+      this._observer = new IntersectionObserver(entries=>{ this._visible = entries.some(x=>x.isIntersecting); this._animate(); });
+      this._observer.observe(this);
+    }
+    _st(id) { return this._hass?.states?.[id]; }
+    _ok(id) { const s=this._st(id); return !!s && !['unavailable','unknown'].includes(s.state); }
+    _num(id) { const s=this._st(id); return this._ok(id) && Number.isFinite(Number(s.state)) ? Number(s.state) : null; }
+    _fmt(id, suffix, decimals=0) { const n=this._num(id); return n===null?'—':n.toFixed(decimals)+suffix; }
+    _q(s) { return this.shadowRoot.querySelector(s); }
+    _all(s) { return this.shadowRoot.querySelectorAll(s); }
+    _speaker(side) {
+      return `<svg viewBox="0 0 180 200" class="speaker-art" aria-hidden="true"><defs><linearGradient id="cab-${side}" x2="1" y2="1"><stop stop-color="#e0e5e9"/><stop offset="1" stop-color="#b9c3cd"/></linearGradient><radialGradient id="cone-${side}"><stop stop-color="#263a4d"/><stop offset=".35" stop-color="#334c61"/><stop offset=".5" stop-color="#617488"/><stop offset=".57" stop-color="#203244"/><stop offset=".88" stop-color="#465b6e"/><stop offset="1" stop-color="#1a2d3e"/></radialGradient></defs><ellipse cx="90" cy="188" rx="69" ry="8" fill="#23384d" opacity=".12"/><path d="M40 12h92l12 9v156l-12 10H40l-7-8V20z" fill="url(#cab-${side})"/><rect x="37" y="12" width="95" height="172" rx="12" fill="#203345"/><rect x="43" y="18" width="83" height="160" rx="8" fill="#2b4053"/><circle cx="85" cy="48" r="20" fill="#152637"/><circle cx="85" cy="48" r="13" fill="url(#cone-${side})"/><g class="cone"><circle cx="85" cy="111" r="38" fill="#172a3b"/><circle cx="85" cy="111" r="32" fill="url(#cone-${side})"/><circle cx="85" cy="111" r="10" fill="#172b3c"/><circle cx="82" cy="108" r="5" fill="#506578" opacity=".5"/></g><rect x="68" y="159" width="33" height="5" rx="2.5" fill="#142637"/><circle cx="85" cy="170" r="2" fill="#57d2ce"/></svg>`;
+    }
+    _range(id, label, kind='number', extra='') {
+      return `<label class="range-field ${extra}"><span>${ESC(label)}<output data-out="${ESC(id)}">—</output></span><input aria-label="${ESC(label)}" type="range" data-kind="${kind}" data-entity="${ESC(id)}" min="0" max="100" step="1" disabled></label>`;
+    }
+    _select(id,label) { return `<label class="select-field"><span>${ESC(label)}</span><select aria-label="${ESC(label)}" data-entity="${ESC(id)}" data-kind="select" disabled></select></label>`; }
+    _loadColors() {
+      this._skin='modern';this._visual='spectrum';this._source=this._cfg.preview?'demo':'live';this._themes={};this._colors={...PALETTES.lime};
+      try{
+        const saved=JSON.parse(localStorage.getItem('louder-studio:appearance:'+this._cfg.entity));
+        if(Object.hasOwn(SKINS,saved?.skin))this._skin=saved.skin;
+        for(const id of Object.keys(SKINS))if(saved?.themes?.[id]&&typeof saved.themes[id]==='object'){
+          const theme={...SKINS[id].colors,visual:SKINS[id].visual};
+          for(const key of COLOR_KEYS)if(HEX.test(saved.themes[id][key]||''))theme[key]=saved.themes[id][key];
+          if(['spectrum','analog'].includes(saved.themes[id].visual))theme.visual=saved.themes[id].visual;
+          this._themes[id]=theme;
+        }
+        this._colors={...SKINS[this._skin].colors,...this._themes[this._skin]};
+        this._visual=this._themes[this._skin]?.visual||SKINS[this._skin].visual;
+        for(const key of COLOR_KEYS)if(HEX.test(saved?.[key]||''))this._colors[key]=saved[key];
+        if(['spectrum','analog'].includes(saved?.visual))this._visual=saved.visual;
+        if(['live','demo'].includes(saved?.source))this._source=saved.source;
+      }catch{}
+    }
+    _setSkin(id) {
+      if(!Object.hasOwn(SKINS,id))return;
+      this._themes[this._skin]={...this._colors,visual:this._visual};
+      this._skin=id;const saved=this._themes[id];
+      this._colors={...SKINS[id].colors,...saved};this._visual=saved?.visual||SKINS[id].visual;
+      this._applyColors(true);
+    }
+    _applyColors(persist=false) {
+      const c=this._colors,bg=c.background,fg=ink(bg),panel=mix(bg,fg,.07),line=mix(bg,fg,.28);
+      let muted=mix(bg,fg,.72);if(contrast(bg,muted)<4.5||contrast(panel,muted)<4.5)muted=fg;
+      const screen=this._skin==='vintage'?panel:this._skin==='midnight'?bg:'#0b100b',screenInk=ink(screen);
+      const bar=contrast(c.accent,screen)>=3?c.accent:mix(c.accent,screenInk,.65),peak=contrast(c.peak,screen)>=3?c.peak:mix(c.peak,screenInk,.65);
+      const meter=c.meter||PALETTES.lime.meter,meterInk=ink(meter),needle=contrast(c.peak,meter)>=3?c.peak:mix(c.peak,meterInk,.55);
+      this._canvasColors={bar,peak,grid:mix(screen,screenInk,.14)};
+      const vars={bg,panel,line,ink:fg,muted,accent:c.accent,'accent-ink':ink(c.accent),scheme:fg==='#ffffff'?'dark':'light','screen-bg':screen,'screen-ink':bar,'screen-muted':mix(screen,screenInk,.72),bar,'meter-bg':meter,'meter-ink':meterInk,'meter-needle':needle};
+      for(const [name,value]of Object.entries(vars))this.style.setProperty('--retro-'+name,value);
+      this._all('[data-color]').forEach(el=>{el.value=c[el.dataset.color];this._q('[data-color-out="'+el.dataset.color+'"]').textContent=c[el.dataset.color].toUpperCase();});
+      this._q('.studio').dataset.skin=this._skin;
+      this._q('[data-appearance=skin]').value=this._skin;this._q('[data-appearance=visual]').value=this._visual;
+      this._q('[data-appearance=source]').value=this._source;
+      const analog=this._visual==='analog';this._q('.analog-meters').hidden=!analog;this._q('canvas').hidden=analog;this._q('.freq').hidden=analog;
+      this._updateLiveLabel(false);
+      if(persist){
+        this._themes[this._skin]={...c,visual:this._visual};
+        let message='Uiterlijk bewaard op dit apparaat.';
+        try{localStorage.setItem('louder-studio:appearance:'+this._cfg.entity,JSON.stringify({accent:c.accent,peak:c.peak,background:c.background,meter,skin:this._skin,visual:this._visual,source:this._source,themes:this._themes}));}catch{message='Uiterlijk gewijzigd voor deze sessie.';}
+        this._q('.color-status').textContent=message;
+      }
+      this._animate();
+    }
+    _analogMeter(label) {
+      const point=(angle,r)=>{const a=(angle-90)*Math.PI/180;return [110+Math.cos(a)*r,126+Math.sin(a)*r];};
+      const ticks=[-40,-25,-15,-10,-5,0].map(v=>{const angle=-50+(v+40)/40*100,a=point(angle,86),b=point(angle,94),t=point(angle,108);return `<path class="meter-scale" d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}"/><text x="${t[0]}" y="${t[1]}" text-anchor="middle">${v}</text>`;}).join('');
+      return `<div class="analog-meter"><svg viewBox="0 0 220 146" role="img" aria-label="${ESC(label)} bronmeter in VU-stijl"><path class="meter-scale" d="M41 68 A90 90 0 0 1 179 68"/>${ticks}<text class="meter-title" x="110" y="92" text-anchor="middle">VU</text><text x="12" y="136">${ESC(label)}</text><text x="208" y="136" text-anchor="end">dBFS</text><line class="vu-needle" x1="110" y1="126" x2="110" y2="42" transform="rotate(-55 110 126)"/><circle class="meter-pivot" cx="110" cy="126" r="3"/></svg></div>`;
+    }
+    _installRetro() {
+      const style=document.createElement('style');style.textContent=RETRO_CSS+SKIN_CSS;this.shadowRoot.append(style);
+      const overview=this._q('.overview'),rack=document.createElement('div'),deck=document.createElement('div');rack.className='retro-rack';deck.className='retro-deck';deck.append(...overview.children);rack.append(deck,this._q('.boards'));overview.replaceWith(rack);this._q('.section-line').remove();
+      this._q('canvas').insertAdjacentHTML('beforebegin',`<div class="analog-meters" hidden>${this._analogMeter('Links')}${this._analogMeter('Rechts')}</div>`);
+      this._q('.foot').firstElementChild.lastChild.textContent=' De visualisatie toont de sfeer van het ontwerp, niet het gemeten geluid.';
+      this._q('.foot').lastElementChild.textContent='Audiobron: Music Assistant · MilkDrop-relay.';
+      this._q('.top').insertAdjacentHTML('afterend',`<details class="appearance"><summary>Kleuren & uiterlijk</summary><div class="appearance-selects"><label>Stijl<select data-appearance="skin" aria-label="Stijl">${Object.entries(SKINS).map(([id,s])=>`<option value="${id}">${s.name}</option>`).join('')}</select></label><label>Visualisatie<select data-appearance="visual" aria-label="Visualisatie"><option value="spectrum">Spectrum</option><option value="analog">Analoge VU-meters</option></select></label></div><div class="appearance-grid">${[['accent','Accentkleur'],['peak','Spectrumtop / naald'],['background','Achtergrond'],['meter','Meterverlichting']].map(([key,label])=>`<label class="color-field"><span>${label}</span><input type="color" data-color="${key}" aria-label="${label}"><output data-color-out="${key}"></output></label>`).join('')}</div><div class="color-presets" role="group" aria-label="Kleurcombinaties">${Object.entries(PALETTES).map(([id,p])=>`<button data-act="palette" data-palette="${id}">${p.name}</button>`).join('')}</div><p class="color-note">Je stijl, visualisatie en kleuren worden op dit apparaat bewaard. Elke stijl onthoudt zijn eigen kleurkeuze.</p><p class="color-status" role="status" aria-live="polite"></p></details>`);
+      this._q('.appearance-selects').insertAdjacentHTML('beforeend','<label>Databron<select data-appearance="source" aria-label="Databron"><option value="live">Live Music Assistant</option><option value="demo">Demo-animatie</option></select></label>');
+      this._q('.demo-line').insertAdjacentHTML('afterend','<p class="level-note" hidden>Beide meters tonen hetzelfde mono-bronsignaal vóór de boardinstellingen; geen afzonderlijke meting van de speakeruitgangen.</p>');
+      this._q('.color-presets').insertAdjacentHTML('beforeend','<button data-act="default-colors">Standaard voor deze stijl</button>');
+      const noteStyle=document.createElement('style');noteStyle.textContent='.level-note{font-size:11px;line-height:1.5;color:var(--retro-screen-muted);margin-top:10px}.studio[data-skin=vintage] .level-note,.studio[data-skin=midnight] .level-note{color:var(--muted)}';this.shadowRoot.append(noteStyle);
+      this._applyColors();
+    }
+    _stopLive(){if(this._relay){this._relay.close();this._relay=null;}this._liveState='waiting';}
+    _ensureLive(){
+      const wanted=this.isConnected&&this._cfg&&this._hass&&this._source==='live'&&this._demo&&this._visible!==false&&!document.hidden&&this._st(this._cfg.entity)?.state==='playing';
+      if(!wanted){this._stopLive();return;}
+      if(typeof this._hass.callWS!=='function'){this._liveState='unavailable';return;}
+      if(this._relay||performance.now()<(this._liveRetryAt||0))return;
+      const relay=new AudioRelay(this._hass,this._cfg.entity,state=>{
+        if(this._relay!==relay)return;this._liveState=state;
+        if(['unavailable','denied'].includes(state)){relay.close();this._relay=null;this._liveRetryAt=performance.now()+30000;}
+      });
+      this._relay=relay;
+      relay.connect().catch(()=>{if(this._relay===relay){relay.close();this._relay=null;this._liveState='unavailable';this._liveRetryAt=performance.now()+30000;}});
+    }
+    _updateLiveLabel(hasFrame){
+      const live=this._source==='live',analog=this._visual==='analog';let text;
+      if(!live)text=(analog?'VU-demo':'Spectrumdemo')+' · geen live-audioanalyse';
+      else if(!this._demo)text='Live-meting gepauzeerd';
+      else if(hasFrame)text='Live · mono-bronniveau';
+      else if(this._st(this._cfg.entity)?.state!=='playing')text='Live · geen muziek';
+      else text={connecting:'Live · verbinding maken…',denied:'Live · geen toegang tot Music Assistant',unavailable:'Live audio niet beschikbaar · controleer de verbinding en MilkDrop-plugin'}[this._liveState]||'Live · wachten op audiodata';
+      if(this._q('.demo-line>span').textContent!==text)this._q('.demo-line>span').textContent=text;
+      this._q('.foot b').textContent=live?'Bediening en visualisatie via Music Assistant.':'Bediening live · visualisatie demo.';
+      const caption=this._q('.foot span')?.lastChild;if(caption)caption.textContent=live?' Bronniveau vóór de boardinstellingen; geen meting van de versterkeruitgang.':' De visualisatie is een demo en meet het geluid niet.';
+      if(this._q('.level-note'))this._q('.level-note').hidden=!(live&&analog);
+      const labels=live?['Laag','','Midden','','','Hoog']:['32 Hz','125','500','2k','8k','16k'];
+      this._all('.freq span').forEach((el,i)=>{if(el.textContent!==labels[i])el.textContent=labels[i];});
+    }
+    _build() {
+      cancelAnimationFrame(this._raf);
+      const c=this._cfg;
+      this.shadowRoot.innerHTML = `<style>
+      :host{display:block;--ink:#233a50;--muted:#718496;--accent:#159caa;--line:#e1e8ed;font-family:var(--paper-font-body1_-_font-family,Inter,system-ui,sans-serif);color:var(--ink)}
+      *{box-sizing:border-box}button,input,select{font:inherit}button,a,input,select{-webkit-tap-highlight-color:transparent}button,a{touch-action:manipulation}button{cursor:pointer}button:disabled,input:disabled,select:disabled{opacity:.42;cursor:not-allowed}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #3fb6c6;outline-offset:4px}button{color:inherit}a{color:inherit;text-decoration:none}button,select{border:1px solid var(--line);background:#fff;border-radius:12px}button:hover:not(:disabled){background:#f0f7f8}button{min-height:44px;padding:10px 15px}h1,h2,h3,p{margin:0}button svg{width:20px;height:20px}input[type=range]{accent-color:var(--accent);cursor:pointer;width:100%;margin:12px 0 5px}
+      .studio{max-width:1400px;margin:0 auto;padding:24px 28px 40px;background:#f3f5f6;border-radius:26px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:24px}.brand{display:flex;align-items:center;gap:13px}.brandmark{width:46px;height:46px;border-radius:15px;background:#163c51;color:#81dfdc;display:grid;place-items:center;font-size:25px}.eyebrow{font-size:10px;font-weight:750;letter-spacing:2px;color:var(--muted);text-transform:uppercase}h1{font-size:27px;letter-spacing:-1px;line-height:1.35}.subline{font-size:12px;color:var(--muted);margin-top:3px}.nav{display:flex;gap:8px}.nav a{border:1px solid var(--line);border-radius:24px;padding:11px 17px;background:white;font-size:12px;font-weight:650}.overview{display:grid;grid-template-columns:1.8fr 1fr;gap:18px}.card{border:1px solid #e2e8ed;border-radius:23px;background:#fff;box-shadow:0 5px 24px #223e5110;overflow:hidden}.card-pad{padding:24px}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.pill{font-size:10px;letter-spacing:.5px;font-weight:750;border-radius:20px;padding:7px 10px;background:#e9f8f3;color:#25826f;white-space:nowrap}.pill.dim{background:#eff2f5;color:#7c8b99}.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#2eaf97;margin-right:5px}.screen{position:relative;background:#132b3d;border:1px solid #27465b;border-radius:16px;padding:18px 20px;margin-top:17px;color:#e8f3f8;overflow:hidden}.screen:after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#ffffff06,transparent 45%);pointer-events:none}.monitor-meta{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:16px}.track-icon{width:46px;height:46px;border-radius:13px;background:#25485b;display:grid;place-items:center;color:#79dcda;font-size:25px;flex-shrink:0}.track{min-width:0;flex:1}.track strong{font-size:20px;letter-spacing:-.4px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track small{display:block;color:#94acbc;font-size:12px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.time{font:12px ui-monospace,monospace;color:#91c4cd;white-space:nowrap}.spectrum{display:block;width:100%;height:106px;margin-top:15px}.freq{display:flex;justify-content:space-between;color:#718f9e;font-size:9px;letter-spacing:1px;padding-top:6px}.demo-line{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:10px;color:#94acbc;margin-top:13px}.demo-line label{display:flex;align-items:center;gap:6px;white-space:nowrap}.demo-line input{accent-color:#50c5c7}.transport{display:flex;gap:10px;justify-content:center;margin-top:17px}.transport button{width:48px;padding:0;font-size:17px}.transport .play{width:62px;background:var(--accent);border-color:var(--accent);color:white;font-size:21px}.transport .play:hover{background:#138998}.master{text-align:center}.master .row{text-align:left}.dial{width:156px;height:156px;position:relative;display:grid;place-items:center;margin:17px auto 8px;border-radius:50%;background:conic-gradient(from 225deg,#28b9bd calc(var(--vol,0)*2.7deg),#e5edf1 0deg 270deg,transparent 270deg)}.dial:before{content:"";position:absolute;inset:9px;border-radius:50%;background:#fff}.dial-inner{z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:123px;height:123px;border-radius:50%;border:1px solid #dbe4ea;background:radial-gradient(circle at 35% 25%,#fff,#edf2f5);box-shadow:0 4px 12px #2c45551b}.dial-inner b{font-size:38px;font-weight:600;letter-spacing:-2px}.dial-inner small{font-size:9px;letter-spacing:2px;color:#7a8d9d}.master .range-field{text-align:left}.master-note{font-size:11px;color:var(--muted);margin-top:13px;line-height:1.55}.section-line{margin:26px 2px 13px;display:flex;justify-content:space-between;align-items:center}h2{font-size:17px;letter-spacing:-.35px}.section-line p{font-size:11px;color:var(--muted)}.boards{display:grid;grid-template-columns:1fr 1fr;gap:18px}.board-head h3{font-size:19px;letter-spacing:-.5px}.board-body{display:grid;grid-template-columns:135px 1fr;gap:18px;align-items:center;margin-top:8px}.speaker-art{width:130px;height:156px}.range-field{display:block}.range-field>span{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);gap:8px}.range-field output{color:var(--ink);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}.board-buttons{display:flex;gap:7px;margin-top:14px}.board-buttons button{font-size:11px;min-height:38px;padding:7px 12px}.sensors{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px;padding-top:15px;border-top:1px solid #edf1f4}.sensor{font-size:10px;color:#708799;border-radius:8px;background:#f3f7f9;padding:7px 9px}.sensor b{font-weight:650;color:#314c61}.fault{color:#c24f3d!important}.selects{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.select-field{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--muted)}select{width:100%;min-height:42px;padding:8px;font-size:11px;color:var(--ink)}.eq{margin-top:18px}.eq .card-pad{padding-bottom:20px}.eq-tools{display:flex;gap:8px;align-items:center}.tabs{display:flex;border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}.tabs button{border:0;min-height:32px;padding:5px 13px;border-radius:8px;font-size:11px;background:transparent}.tabs button[aria-pressed=true]{background:#e3f5f5;color:#14838f}.eq-tools>button{min-height:36px;padding:6px 12px;font-size:11px}.eq-intro{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.6}.eq-scroll{overflow-x:auto;padding:5px 0 4px;margin-top:12px;scrollbar-width:thin}.eq-bands{display:grid;grid-template-columns:repeat(15,minmax(40px,1fr));gap:5px;min-width:680px}.band{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;padding:9px 0;border-radius:9px;background:linear-gradient(#f6f9fb,#fbfcfd)}.band output{font:10px ui-monospace,monospace;color:#4c687c;min-height:15px}.band input{writing-mode:vertical-lr;direction:rtl;width:32px;height:120px;margin:5px 0;accent-color:#209fae}.band .hz{font-size:9px;font-weight:650;color:#6c8598}.eq-axis{display:flex;justify-content:space-between;color:#95a6b3;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-top:10px}.advanced{margin-top:16px;border-top:1px solid var(--line);padding-top:13px}summary{font-size:11px;font-weight:650;cursor:pointer;color:#5b7588}.trim-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding-top:16px}.foot{font-size:10px;color:#7f93a3;display:flex;justify-content:space-between;gap:20px;margin:19px 2px 0;line-height:1.65}.foot b{color:#49677d;font-weight:650}.error{margin:15px 0 0;padding:12px 15px;border-radius:12px;background:#fff0ec;font-size:12px;color:#a34d38}.error:empty{display:none}.small-caps{font-size:10px;color:#7c94a6;letter-spacing:1.2px}.playing .cone{animation:pulse-cone .8s ease-in-out infinite;transform-origin:85px 111px}@keyframes pulse-cone{50%{transform:scale(1.025)}}
+      @media(max-width:900px){.overview{grid-template-columns:1.35fr 1fr}.studio{padding:20px}.card-pad{padding:19px}.board-body{grid-template-columns:95px 1fr;gap:8px}.speaker-art{width:95px;height:135px}.board-buttons{flex-wrap:wrap}.time{display:none}.nav a{padding:10px 13px}.dial{width:143px;height:143px}.dial-inner{width:112px;height:112px}}
+      @media(max-width:620px){.studio{padding:16px 12px 26px;border-radius:16px}.top{align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:17px}.brandmark{width:39px;height:39px;border-radius:12px}h1{font-size:24px}.brand{gap:10px}.nav{width:100%;justify-content:flex-start}.nav a{font-size:11px;min-height:40px}.overview,.boards{grid-template-columns:1fr;gap:13px}.card{border-radius:20px}.card-pad{padding:19px}.master-wrap{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:12px}.dial{margin:13px 0 0;width:132px;height:132px}.dial-inner{width:101px;height:101px}.dial-inner b{font-size:32px}.master-note{text-align:left;font-size:10px}.master .mute-master{width:100%;font-size:11px;margin-top:12px}.section-line{margin-top:23px}.section-line p{max-width:120px;text-align:right;font-size:10px}.board-body{grid-template-columns:108px 1fr;gap:12px}.speaker-art{width:108px;height:148px}.eq-tools{gap:6px}.eq-tools>button{padding:5px 8px;font-size:10px}.tabs button{padding:5px 9px}.eq-head{align-items:flex-start;gap:12px;flex-direction:column}.trim-grid{grid-template-columns:1fr;gap:12px}.foot{flex-direction:column;gap:7px;font-size:10px}.track strong{font-size:18px}.screen{padding:16px}.demo-line{gap:5px;font-size:9px}.eq-bands{min-width:700px}.subline{font-size:11px}}
+      .studio{width:100%;min-width:0}.overview>*,.boards>*,.board-body>*,.master-wrap>*,.foot>*{min-width:0}.board-body{grid-template-columns:135px minmax(0,1fr)}.nav button{border-radius:24px;padding:11px 17px;font-size:12px;font-weight:650;min-height:0}.section-line{gap:14px}.section-line p{flex-shrink:1}.foot span{overflow-wrap:anywhere}select{min-width:0}
+      @media(max-width:900px){.board-body{grid-template-columns:95px minmax(0,1fr)}}
+      @media(max-width:620px){.board-body{grid-template-columns:98px minmax(0,1fr);gap:10px}.speaker-art{width:98px}.master-wrap{grid-template-columns:130px minmax(0,1fr);gap:8px}.nav button{font-size:11px;padding:10px 13px;min-height:40px}.master .small-caps{font-size:8px;letter-spacing:.6px}.section-line p{max-width:110px}.selects{gap:6px}}
+      .presets{margin-top:15px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#f8fbfc}.preset-heading{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)}.preset-heading b{color:var(--ink)}.preset-buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.preset-buttons button{min-height:38px;font-size:11px;padding:8px 13px}.preset-buttons button[aria-pressed=true]{background:#e0f4f3;border-color:#83c8c9;color:#127e87}.preset-description,.preset-message{font-size:11px;color:var(--muted);line-height:1.6;margin-top:9px}.preset-message{color:#127e87}.preset-message:empty{display:none}
+      @media(prefers-reduced-motion:reduce){.playing .cone{animation:none}}
+      </style><main class="studio"><header class="top"><div class="brand"><div class="brandmark">≋</div><div><div class="eyebrow">Jouw geluid. Jouw instelling.</div><h1>Louder Studio</h1><p class="subline">Twee boards · één luisterplek</p></div></div><nav class="nav"><a href="/lovelace/home" data-nav>⌂ Home</a><button data-act="more-group">Speler openen ↗</button></nav></header>
+      <div class="overview"><section class="card card-pad"><div class="row"><span class="eyebrow">Nu aan het spelen</span><span class="pill" id="group-state"></span></div><div class="screen"><div class="monitor-meta"><div class="track-icon">♫</div><div class="track"><strong id="title">Even verbinden…</strong><small id="artist">Louder-speakers</small></div><span class="time" id="time">—</span></div><canvas class="spectrum" aria-label="Spectrumdemo; geen meting van het audiosignaal"></canvas><div class="freq"><span>32 Hz</span><span>125</span><span>500</span><span>2k</span><span>8k</span><span>16k</span></div><div class="demo-line"><span>Spectrumdemo · geen live-audioanalyse</span><label><input type="checkbox" id="demo" checked> Animatie</label></div></div><div class="transport"><button data-act="media_previous_track" aria-label="Vorige track">⏮</button><button data-act="media_play_pause" class="play" aria-label="Afspelen of pauzeren" id="play">Ⅱ</button><button data-act="media_next_track" aria-label="Volgende track">⏭</button><button data-act="more-group" aria-label="Speler en wachtrij">☷</button></div></section>
+      <section class="card card-pad master"><div class="row"><span class="eyebrow">Master volume</span><span class="small-caps">LOUDER-SPEAKERS</span></div><div class="master-wrap"><div class="dial" id="dial"><div class="dial-inner"><b id="master-value">—</b><small>VOLUME %</small></div></div><div>${this._range(c.entity,'Groepsvolume','volume')}<button class="mute-master" data-act="mute-group" id="mute-group">Geluid dempen</button><p class="master-note">Bedient je bestaande groep.<br>De twee boards blijven apart instelbaar.</p></div></div></section></div>
+      <div class="section-line"><h2>Je versterkers</h2><p>Live bediening via Home Assistant</p></div><div class="boards">${c.boards.map((b,i)=>`<section class="card card-pad" id="board-${i}"><div class="row board-head"><div><div class="eyebrow">Louder ESP32 Pro · board ${i+1}</div><h3>${ESC(b.name)}</h3></div><span class="pill" data-status="${i}">—</span></div><div class="board-body">${this._speaker(i)}<div>${this._range(b.player,'Afspeelvolume','volume')}<div class="board-buttons"><button data-act="mute" data-board="${i}" id="mute-${i}">Dempen</button><button data-act="more" data-board="${i}">Speler ↗</button></div><div class="selects">${this._select(b.eq,'Equalizer')}${this._select(b.mixer,'Kanaalmix')}</div></div></div><div class="sensors"><span class="sensor">CPU <b id="temp-${i}">—</b></span><span class="sensor">WiFi <b id="wifi-${i}">—</b></span><span class="sensor" id="fault-${i}">Status <b>—</b></span><button data-act="led" data-board="${i}" aria-label="LED van ${ESC(b.name)}" style="font-size:10px;min-height:30px;padding:5px 9px">LED ↗</button><button data-act="fan" data-board="${i}" aria-label="Koeling van ${ESC(b.name)}" style="font-size:10px;min-height:30px;padding:5px 9px">Koeling ↗</button></div></section>`).join('')}</div>
+      <section class="card card-pad eq"><div class="row eq-head"><div><span class="eyebrow">Fijnafstelling</span><h2>15-bands equalizer</h2></div><div class="eq-tools"><div class="tabs">${c.boards.map((b,i)=>`<button data-act="tab" data-board="${i}" aria-pressed="${i===this._tab}">${ESC(b.name)}</button>`).join('')}</div><button data-act="flat">Vlak · 0 dB</button></div></div><p class="eq-intro" id="eq-description"></p><div class="eq-scroll"><div class="eq-bands" id="bands"></div></div><div class="eq-axis"><span>Laag · bas</span><span>Midden</span><span>Hoog · detail</span></div><details class="advanced"><summary>Uitgangstrim van dit board · dB</summary><div class="trim-grid" id="trims"></div><p class="eq-intro">Kanaal 1 en 2 zijn de fysieke uitgangen van het geselecteerde board.</p></details></section>
+      <p class="error" role="status" aria-live="polite"></p><footer class="foot"><span><b>Bediening live · spectrum demo.</b> De balkjes tonen de sfeer van het ontwerp, niet het gemeten geluid.</span><span>Voor echt audio-reactief beeld: Music Assistant → Plugins → MilkDrop Visualizer.</span></footer></main>`;
+      this._q('.eq-scroll').insertAdjacentHTML('beforebegin',`<div class="presets"><div class="preset-heading"><b>Equalizerprofielen</b><span id="preset-active">Huidig: —</span></div><div class="preset-buttons" role="group" aria-label="Equalizerprofielen">${Object.entries(PRESETS).map(([id,p])=>`<button data-act="preset" data-preset="${id}" aria-pressed="false" title="${ESC(p.description)}">${ESC(p.name)}</button>`).join('')}</div><p class="preset-description" id="preset-description"></p><p class="preset-message" role="status" aria-live="polite"></p></div>`);
+      this._renderEq(); this._installRetro(); if(this.isConnected) this._observe();
+    }
+    _renderEq() {
+      const b=this._cfg.boards[this._tab];
+      this._q('#bands').innerHTML=b.bands.map(f=>`<label class="band"><output data-out="${ESC(f.entity)}">—</output><input type="range" min="-15" max="15" step="1" data-entity="${ESC(f.entity)}" data-kind="number" aria-label="${ESC(b.name+' '+f.label+' Hz')}" disabled><span class="hz">${ESC(f.label)}</span></label>`).join('');
+      this._q('#trims').innerHTML=this._range(b.trim_left,'Kanaal 1')+this._range(b.trim_right,'Kanaal 2');
+      this._q('#eq-description').textContent=b.name+' · de 15 beschikbare EQ-banden van je firmware. Op een telefoon kun je horizontaal door de banden vegen.';
+      this._all('[data-act=tab]').forEach(el=>el.setAttribute('aria-pressed',Number(el.dataset.board)===this._tab));
+      this._q('.preset-message').textContent='';
+    }
+    _presetValues(board, preset) {
+      if(!preset || board.bands.length!==FREQUENCIES.length)throw Error('Dit profiel vereist de 15 EQ-banden van je board.');
+      return board.bands.map(f=>{
+        const index=FREQUENCIES.findIndex(hz=>f.entity.endsWith('_left_'+hz));
+        if(index<0)throw Error('De frequenties van dit board komen niet overeen.');
+        return preset.values[index];
+      });
+    }
+    _presetReady(board, preset) {
+      try {
+        const values=this._presetValues(board,preset),mode=this._st(board.eq);
+        return this._ok(board.eq) && mode.attributes.options?.includes('EQ 15 Band') && board.bands.every((f,i)=>{
+          const a=this._st(f.entity)?.attributes,v=values[i];
+          return this._num(f.entity)!==null && Number.isFinite(a?.min) && Number.isFinite(a?.max) && v>=a.min && v<=a.max && (!a.step || Math.abs((v-a.min)/a.step-Math.round((v-a.min)/a.step))<.001);
+        });
+      } catch {return false;}
+    }
+    _syncPresets() {
+      const b=this._cfg.boards[this._tab],enabled=this._st(b.eq)?.state==='EQ 15 Band';
+      const match=enabled?Object.entries(PRESETS).find(([,p])=>{
+        try{return this._presetValues(b,p).every((v,i)=>this._num(b.bands[i].entity)===v);}catch{return false;}
+      }):null;
+      this._q('#preset-active').textContent=this._applyingPreset?'Wordt toegepast…':'Huidig: '+(!this._ok(b.eq)?'Onbekend':!enabled?'Equalizer uit':match?match[1].name:'Aangepast');
+      this._q('#preset-description').textContent=(match?match[1].description+'. ':'')+'Kies een profiel voor '+b.name+'. De equalizer wordt ingeschakeld; daarna kun je zelf fijnregelen.';
+      this._all('[data-act=preset]').forEach(el=>{el.disabled=!!this._applyingPreset||!this._presetReady(b,PRESETS[el.dataset.preset]);el.setAttribute('aria-pressed',match?.[0]===el.dataset.preset?'true':'false');});
+      this._all('[data-act=tab]').forEach(el=>{el.disabled=!!this._applyingPreset;});
+      this._q('[data-act=flat]').disabled=!!this._applyingPreset||!this._presetReady(b,PRESETS.vlak);
+      if(this._applyingPreset){this._all('#bands input').forEach(el=>el.disabled=true);this._all('select[data-entity]').forEach(el=>{if(el.dataset.entity===b.eq)el.disabled=true;});}
+    }
+    async _applyPreset(id) {
+      if(this._applyingPreset)return;
+      const b=this._cfg.boards[this._tab],preset=PRESETS[id];
+      if(!this._presetReady(b,preset)){this._q('.error').textContent='Profiel niet toegepast: de equalizer of een EQ-band is niet beschikbaar.';return;}
+      const values=this._presetValues(b,preset);
+      this._applyingPreset=true;this._q('.preset-message').textContent='Profiel '+preset.name+' toepassen op '+b.name+'…';this._sync();
+      try {
+        for(let i=0;i<b.bands.length;i++)if(this._num(b.bands[i].entity)!==values[i])await this._call('number','set_value',b.bands[i].entity,{value:values[i]},true);
+        if(this._st(b.eq)?.state!=='EQ 15 Band')await this._call('select','select_option',b.eq,{option:'EQ 15 Band'},true);
+        this._q('.preset-message').textContent='Profiel '+preset.name+' verstuurd naar '+b.name+'.';
+      } catch(err) {
+        this._q('.preset-message').textContent='';this._q('.error').textContent='Profiel niet volledig toegepast op '+b.name+': '+err.message+' Controleer de schuiven en probeer opnieuw.';
+      } finally {this._applyingPreset=false;this._sync();}
+    }
+    _input(e) {
+      const el=e.target;
+      if(el.dataset.color){if(COLOR_KEYS.includes(el.dataset.color)&&HEX.test(el.value)){this._colors[el.dataset.color]=el.value;this._applyColors(true);}return;}
+      if(!el.matches('input[data-entity]')) return;
+      this._all('[data-out]').forEach(out=>{if(out.dataset.out===el.dataset.entity)out.textContent=el.value+(el.dataset.kind==='volume'?'%':' dB');});
+    }
+    async _change(e) {
+      const el=e.target;
+      if(el.dataset.color)return;
+      if(el.dataset.appearance==='skin'){this._setSkin(el.value);return;}
+      if(el.dataset.appearance==='visual'){if(['spectrum','analog'].includes(el.value)){this._visual=el.value;this._applyColors(true);}return;}
+      if(el.dataset.appearance==='source'){if(['live','demo'].includes(el.value)){this._source=el.value;this._stopLive();this._liveRetryAt=0;this._applyColors(true);}return;}
+      if(el.id==='demo'){this._demo=el.checked;this._animate();return;}
+      const id=el.dataset.entity; if(!id || !this._allowed.has(id))return;
+      if(el.dataset.kind==='select')await this._call('select','select_option',id,{option:el.value});
+      else if(el.dataset.kind==='volume')await this._call('media_player','volume_set',id,{volume_level:Number(el.value)/100});
+      else if(el.dataset.kind==='number')await this._call('number','set_value',id,{value:Number(el.value)});
+    }
+    _more(id) { this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:id},bubbles:true,composed:true})); }
+    async _click(e) {
+      const link=e.target.closest('a[data-nav]');
+      if(link && this._hass){e.preventDefault();history.pushState(null,'',link.getAttribute('href'));window.dispatchEvent(new Event('location-changed'));return;}
+      const el=e.target.closest('[data-act]'); if(!el || el.disabled)return;
+      const a=el.dataset.act,b=this._cfg.boards[Number(el.dataset.board)||0],g=this._cfg.entity;
+      if(a==='palette'){const palette=PALETTES[el.dataset.palette];if(palette){this._colors={...palette};this._applyColors(true);}return;}
+      if(a==='default-colors'){this._colors={...SKINS[this._skin].colors};this._applyColors(true);return;}
+      if(a==='tab'){this._tab=Number(el.dataset.board);this._renderEq();this._sync();return;}
+      if(a==='more-group'){this._more(g);return;}
+      if(['more','led','fan'].includes(a)){this._more(a==='more'?b.player:b[a]);return;}
+      if(a==='mute-group') {await this._muteGroup();return;}
+      if(a==='mute'){await this._call('media_player','volume_mute',b.player,{is_volume_muted:!this._st(b.player)?.attributes.is_volume_muted});return;}
+      if(a==='flat'||a==='preset'){await this._applyPreset(a==='flat'?'vlak':el.dataset.preset);return;}
+      if(['media_play_pause','media_previous_track','media_next_track'].includes(a))await this._call('media_player',a,g,{});
+    }
+    async _muteGroup() {
+      // Some MA groups omit is_volume_muted. Use their actual member states.
+      const ids=this._cfg.boards.map(b=>b.player);
+      const muted=ids.every(id=>this._st(id)?.attributes.is_volume_muted===true);
+      for(const id of ids)if(!await this._call('media_player','volume_mute',id,{is_volume_muted:!muted}))break;
+    }
+    async _call(domain, service, id, data, bubble=false) {
+      try {
+        if(!this._hass || !this._allowed.has(id) || !this._ok(id))throw Error('Deze bediening is nu niet beschikbaar.');
+        if(domain==='number') {
+          const a=this._st(id).attributes, v=Number(data.value);
+          if(!Number.isFinite(v)||v<a.min||v>a.max)throw Error('Waarde valt buiten het bereik van dit board.');
+        }
+        if(domain==='select' && !this._st(id).attributes.options?.includes(data.option))throw Error('Deze instelling wordt niet aangeboden.');
+        this._q('.error').textContent='';
+        await this._hass.callService(domain,service,data,{entity_id:id});
+        return true;
+      } catch(err) { this._q('.error').textContent='Instelling niet uitgevoerd: '+err.message; if(bubble)throw err; return false; }
+    }
+    _sync() {
+      if(!this._cfg || !this._q('#title'))return;
+      const g=this._st(this._cfg.entity),attrs=g?.attributes||{},playing=g?.state==='playing';
+      this._q('#title').textContent=attrs.media_title||'Kies je muziek';
+      this._q('#artist').textContent=[attrs.media_artist,attrs.media_album_name].filter(Boolean).join(' · ')||'Louder-speakers';
+      this._q('#group-state').textContent=playing?'● SPEELT':['paused','idle'].includes(g?.state)?'GEREED':'NIET VERBONDEN';
+      this._q('#group-state').classList.toggle('dim',!playing);
+      this._q('#play').textContent=playing?'Ⅱ':'▶';
+      this._all('.transport [data-act]').forEach(el=>{el.disabled=!this._ok(this._cfg.entity);});
+      const vol=Number.isFinite(attrs.volume_level)?Math.round(attrs.volume_level*100):null;
+      this._q('#master-value').textContent=vol===null?'—':vol;
+      this._q('#dial').style.setProperty('--vol',vol||0);
+      this._q('#mute-group').disabled=!this._cfg.boards.every(b=>this._ok(b.player));
+      this._q('#mute-group').textContent=this._cfg.boards.every(b=>this._st(b.player)?.attributes.is_volume_muted===true)?'Geluid aan':'Geluid dempen';
+      this._cfg.boards.forEach((b,i)=>{
+        const online=this._ok(b.player),fault=this._st(b.fault)?.state;
+        const badge=this._q(`[data-status="${i}"]`);badge.textContent=online?'● ONLINE':'OFFLINE';badge.classList.toggle('dim',!online);
+        this._q('#board-'+i).classList.toggle('playing',this._st(b.player)?.state==='playing');
+        this._q('#temp-'+i).textContent=this._fmt(b.temperature,' °C',1);
+        this._q('#wifi-'+i).textContent=this._fmt(b.wifi,' dBm');
+        const f=this._q('#fault-'+i);f.querySelector('b').textContent=fault==='off'?'In orde':fault==='on'?'Foutmelding':'Onbekend';f.classList.toggle('fault',fault==='on');
+        const mute=this._q('#mute-'+i);mute.disabled=!online;mute.textContent=this._st(b.player)?.attributes.is_volume_muted?'Geluid aan':'Dempen';
+      });
+      this._all('select[data-entity]').forEach(el=>{
+        const s=this._st(el.dataset.entity),opts=s?.attributes.options||[];
+        if(el.dataset.options!==JSON.stringify(opts)){el.innerHTML=opts.map(x=>`<option value="${ESC(x)}">${ESC(x)}</option>`).join('');el.dataset.options=JSON.stringify(opts);}
+        if(this.shadowRoot.activeElement!==el)el.value=s?.state||'';el.disabled=!this._ok(el.dataset.entity);
+      });
+      this._all('input[data-entity]').forEach(el=>{
+        const id=el.dataset.entity,s=this._st(id),volume=el.dataset.kind==='volume';
+        const value=volume?Number(s?.attributes.volume_level)*100:this._num(id);
+        const valid=this._ok(id)&&Number.isFinite(value);
+        el.min=volume?0:s?.attributes.min??-15;el.max=volume?100:s?.attributes.max??15;el.step=volume?1:s?.attributes.step??1;el.disabled=!valid;
+        if(this.shadowRoot.activeElement!==el && !el.matches(':active')){
+          if(valid)el.value=value;
+          this._all('[data-out]').forEach(out=>{if(out.dataset.out===id)out.textContent=valid?(volume?Math.round(value)+'%':value+' dB'):'—';});
+        }
+      });
+      this._syncPresets();
+      this._animate();
+    }
+    _animate() {
+      cancelAnimationFrame(this._raf);
+      clearTimeout(this._timer);
+      this._ensureLive();
+      if(!this.isConnected || !this._q('canvas') || this._visible===false)return;
+      const draw=(t)=>{
+        if(!this.isConnected || this._visible===false)return;
+        const active=this._demo && this._st(this._cfg.entity)?.state==='playing';
+        const tm=this._reduced.matches?1:t/1000;
+        const live=this._source==='live',levels=live&&active?this._relay?.currentLevels():null;
+        this._updateLiveLabel(!!levels);
+        if(this._visual==='analog'){
+          const dt=Math.max(.001,Math.min(.05,(t-(this._lastVuTime??t-16))/1000));this._lastVuTime=t;
+          const energy=(levels?.rms||0)**2;this._vuEnergy=(this._vuEnergy||0)+(energy-(this._vuEnergy||0))*(1-Math.exp(-dt/.3));
+          const db=10*Math.log10(Math.max(this._vuEnergy,1e-12)),target=db< -45?-55:Math.max(-50,Math.min(50,-50+(db+40)/40*100));
+          this._vuAngle??=-55;this._vuVelocity??=0;this._vuVelocity+=(110*(target-this._vuAngle)-18*this._vuVelocity)*dt;this._vuAngle+=this._vuVelocity*dt;
+          if(!active){this._vuEnergy=0;this._vuAngle=-55;this._vuVelocity=0;}
+          this._all('.vu-needle').forEach((needle,i)=>{
+            const angle=live?this._vuAngle:active?-18+24*Math.sin(tm*2.1+i*.4)+12*Math.sin(tm*4.3+i*.6):-55;
+            needle.setAttribute('transform',`rotate(${Math.max(-55,Math.min(50,angle))} 110 126)`);
+          });
+        } else {
+          const canvas=this._q('canvas'),ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=canvas.clientHeight;
+          if(w>0&&h>0){
+            const dpr=Math.min(window.devicePixelRatio||1,2);
+            if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+            ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+            ctx.strokeStyle=this._canvasColors?.grid||'#29402b';ctx.lineWidth=.6;
+            for(let y=8;y<h;y+=22){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+            const n=48,gap=3,bw=(w-(n-1)*gap)/n;
+            for(let i=0;i<n;i++){
+              const shape=.3+.48*Math.abs(Math.sin(i*.19+tm*.75))+.19*Math.sin(tm*3.3+i*.68);
+              const amp=live?(levels?.bars[i]||0):active?Math.max(.06,shape*(1-i/n*.45)):.035;
+              const bar=Math.round(amp*(h-10)/5)*5;
+              const colors=this._canvasColors||{bar:'#b5e147',peak:'#f1a444'};
+              const gradient=ctx.createLinearGradient(0,h,0,0);gradient.addColorStop(0,colors.bar);gradient.addColorStop(.6,colors.bar);gradient.addColorStop(1,colors.peak);
+              ctx.fillStyle=gradient;ctx.fillRect(i*(bw+gap),h-bar,bw,bar);
+              if(active&&bar>0){ctx.fillStyle=colors.peak;ctx.fillRect(i*(bw+gap),h-bar-4,bw,2);}
+            }
+          }
+        }
+        const p=this._st(this._cfg.entity),a=p?.attributes||{};
+        const elapsed=(a.media_position||0)+(p?.state==='playing'&&a.media_position_updated_at?Math.max(0,(Date.now()-Date.parse(a.media_position_updated_at))/1000):0);
+        const mm=(s)=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+        this._q('#time').textContent=Number.isFinite(a.media_duration)?mm(Math.min(a.media_duration,elapsed))+' / '+mm(a.media_duration):'LIVE';
+        if(!document.hidden && active && !this._reduced.matches)this._raf=requestAnimationFrame(draw);
+        else {clearTimeout(this._timer);this._timer=setTimeout(()=>this._animate(),1000);}
+      };draw(performance.now());
+    }
+  }
+  customElements.define(TAG,LouderAmplifierCard);
+  window.customCards=window.customCards||[];
+  window.customCards.push({type:TAG,name:'Louder Studio',description:'Vier stijlen, eigen kleuren en spectrum/VU-demo voor twee Louder ESP32 Pro boards.'});
+})();
+
