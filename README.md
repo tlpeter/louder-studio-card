@@ -2,7 +2,7 @@
 
 Home Assistant-audiobediening met vier instelbare stijlen, spectrum of analoge bronmeters, eigen kleuren en optionele equalizerbediening. Voorheen Louder Studio Card.
 
-**Status: 2.2.0-beta.2.** Automatisch getest met fictieve HA-statussen en PCM-audio. Praktijktests per speaker/integratie staan nog open. GitHub kan geen apparaten bij jou thuis testen. Deze repository installeert niets automatisch in Home Assistant.
+**Status: 2.2.0-beta.3.** Automatisch getest met fictieve HA-statussen en PCM-audio. Praktijktests per speaker/integratie staan nog open. GitHub kan geen apparaten bij jou thuis testen. Deze repository installeert niets automatisch in Home Assistant.
 
 Snel naar: [Kleuren en stijl](#waar-stel-ik-dit-in) · [Andere speakers kiezen](#andere-slimme-speakers-toevoegen) · [Installeren via HACS](#installeren-via-hacs).
 
@@ -43,13 +43,16 @@ De voorkeuren worden direct in deze browser bewaard; iedere stijl onthoudt zijn 
 
 HACS zoekt geen speakers op je netwerk. Voeg een speaker eerst via zijn passende integratie toe aan Home Assistant, zodat hij daar als `media_player` beschikbaar is.
 
-Vanaf **2.2.0-beta.2** kun je zonder YAML spelers kiezen:
+Vanaf **2.2.0-beta.3** kun je zonder YAML spelers kiezen:
 
-1. Open je dashboard en kies **Dashboard bewerken**.
-2. Kies **Bewerken** bij deze kaart; schakel zo nodig van de code-editor naar de visuele editor.
-3. Bij **Speakers beheren** zie je de beschikbare Home Assistant-spelers, inclusief bestaande spelers die tijdelijk niet beschikbaar zijn. Zoek op naam en vink de gewenste speakers aan.
-4. Kies de **Hoofdspeler** of bestaande groep voor het bovenste afspeelpaneel.
-5. Klik in Home Assistant op **Opslaan** en sluit de dashboardeditor.
+![Bovenaan de kaart: een opvallende knop Speakers beheren naast Home en Speler openen](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/speaker-toolbar.png)
+
+1. Klik bovenaan de audiokaart op de opvallende knop **⚙ Speakers beheren**. Dashboard-bewerkmodus is niet nodig.
+2. De Home Assistant-kaarteditor opent. Je ziet de beschikbare HA-spelers, inclusief bestaande spelers die tijdelijk niet beschikbaar zijn. Zoek op naam en vink de gewenste speakers aan.
+3. Kies de **Hoofdspeler** of bestaande groep voor het bovenste afspeelpaneel.
+4. Klik op **Opslaan** in de Home Assistant-kaarteditor. Met Annuleren blijft de selectie ongewijzigd.
+
+De knop is beschikbaar voor een HA-beheerder. Hij opent alleen de editor: er worden geen dashboardgegevens of apparaatopdrachten verstuurd totdat je zelf een wijziging opslaat of een apparaat bedient. Bij oudere/afwijkende dashboardlayouts blijft de standaardroute beschikbaar: Dashboard bewerken → **Edit / Bewerken onder de hele kaart**. In een schermvullende panelweergave staat die standaardknop helemaal onderaan, voorbij de equalizer.
 
 ![Visuele kaarteditor: kies een hoofdspeler, zoek in Home Assistant-spelers en vink speakers aan](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/speaker-editor.png)
 
@@ -59,7 +62,7 @@ Zie je **Kleuren & uiterlijk** niet? Controleer of het dashboard de nieuwe HACS-
 
 ### Plaatjes bekijken in HACS
 
-Open in HACS de detailpagina van **Multiroom Audio Dashboard**. De repository gebruikt `render_readme: true`, zodat de README daar wordt weergegeven. HACS haalt de documentatie op voor de geïnstalleerde of geselecteerde versie: kies **2.2.0-beta.2 of nieuwer** voor deze geïllustreerde uitleg. De afbeeldingen hebben volledige HTTPS-adressen en vereisen geen GitHub-login. Als oude informatie blijft staan, kies **Update information / Informatie bijwerken** in het repositorymenu en open de detailpagina opnieuw. Voor het laden van de plaatjes moet je browser GitHub Raw kunnen bereiken. Zie de [HACS-documentatie](https://www.hacs.dev/docs/publish/start/) en [versiekeuze in de HACS-broncode](https://github.com/hacs/integration/blob/main/custom_components/hacs/repositories/base.py).
+Open in HACS de detailpagina van **Multiroom Audio Dashboard**. De repository gebruikt `render_readme: true`, zodat de README daar wordt weergegeven. HACS haalt de documentatie op voor de geïnstalleerde of geselecteerde versie: kies **2.2.0-beta.3 of nieuwer** voor deze geïllustreerde uitleg. De afbeeldingen hebben volledige HTTPS-adressen en vereisen geen GitHub-login. Als oude informatie blijft staan, kies **Update information / Informatie bijwerken** in het repositorymenu en open de detailpagina opnieuw. Voor het laden van de plaatjes moet je browser GitHub Raw kunnen bereiken. Zie de [HACS-documentatie](https://www.hacs.dev/docs/publish/start/) en [versiekeuze in de HACS-broncode](https://github.com/hacs/integration/blob/main/custom_components/hacs/repositories/base.py).
 
 ## Installeren via HACS
 
@@ -83,7 +86,7 @@ players:
 
 Bij een bestaande installatie: vervang de oude inline/lokale resource eenmalig door bovenstaande HACS-resource. Laad maar **één versie** van het JavaScript. Je oude `custom:louder-amplifier-card`-type, `boards`-configuratie en stijlvoorkeuren blijven werken. De oude bestandsnaam is behouden voor compatibiliteit. Gebruik voor nieuwe HACS-installaties het nieuwe GitHub-adres.
 
-Zonder HACS: plaats het releasebestand `louder-amplifier-card.js` in `/config/www/multiroom-audio-dashboard/`, registreer `/local/multiroom-audio-dashboard/louder-amplifier-card.js?v=2.2.0-beta.2` als module en herlaad. Een HA-herstart is niet nodig voor deze frontendresource.
+Zonder HACS: plaats het releasebestand `louder-amplifier-card.js` in `/config/www/multiroom-audio-dashboard/`, registreer `/local/multiroom-audio-dashboard/louder-amplifier-card.js?v=2.2.0-beta.3` als module en herlaad. Een HA-herstart is niet nodig voor deze frontendresource.
 
 ## Uiterlijk en bediening
 

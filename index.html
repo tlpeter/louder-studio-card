@@ -16,6 +16,27 @@ const hass={states,locale:{language:'nl'},async callService(domain,service,data,
   if(service==='media_play_pause'){const next=s.state==='playing'?'paused':'playing';for(const id of [config.entity,...config.boards.map(b=>b.player)])states[id].state=next;}
   card.hass={...hass};
 }};
+// Simulate HA's native edit event and Save/Cancel contract, with no HA connection.
+hass.user={is_admin:true};
+const view=document.createElement('hui-view'),layout=document.createElement('hui-panel-view'),wrapper=document.createElement('hui-card');
+view.index=0;layout.index=0;view.lovelace={mode:'storage',config:{views:[{type:'panel',cards:[config]}]}};wrapper.config=config;
+card.replaceWith(view);view.append(layout);layout.append(wrapper);wrapper.append(card);
+layout.addEventListener('ll-edit-card',event=>{
+  if(JSON.stringify(event.detail.path)!=='[0,0]')return;
+  const dialog=document.createElement('dialog');dialog.className='demo-editor-dialog';
+  dialog.innerHTML='<p>VOORBEELD · wijzig alleen de fictieve dashboardconfiguratie</p><div class="editor-host"></div><div class="demo-dialog-actions"><button data-cancel>Annuleren</button><button data-save>Opslaan</button></div>';
+  const editor=card.constructor.getConfigElement();let draft=wrapper.config;
+  editor.setConfig(draft);editor.hass=card.hass;
+  editor.addEventListener('config-changed',event=>{draft=event.detail.config;});
+  dialog.querySelector('.editor-host').append(editor);
+  dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+  dialog.querySelector('[data-save]').onclick=()=>{
+    view.lovelace.config.views[0].cards[0]=draft;wrapper.config=draft;
+    card.setConfig({...draft,preview:true});card.hass={...card.hass};dialog.close();
+  };
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+});
+const editorStyle=document.createElement('style');editorStyle.textContent='hui-view,hui-panel-view,hui-card{display:block}.demo-editor-dialog{box-sizing:border-box;width:min(700px,calc(100vw - 24px));max-height:90vh;overflow:auto;border:1px solid #ccd4da;border-radius:18px;padding:20px;background:#fff;color:#263746}.demo-editor-dialog::backdrop{background:#0008}.demo-editor-dialog>p{font-size:11px;color:#637482}.demo-dialog-actions{position:sticky;bottom:-20px;display:flex;justify-content:flex-end;gap:12px;padding:14px 0;background:#fff}.demo-dialog-actions button{font:inherit;padding:10px 18px;border:1px solid #ccd4da;border-radius:10px;background:#eef2f4;color:#263746}.demo-dialog-actions [data-save]{background:#155d70;color:#fff;border-color:#155d70}';document.head.append(editorStyle);
 card.setConfig({...config,preview:true});card.hass=hass;
 document.addEventListener('hass-more-info',e=>{document.querySelector('#commands').textContent='Meer informatie: '+e.detail.entityId;});
 </script></html>
