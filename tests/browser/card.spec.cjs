@@ -12,7 +12,7 @@ async function open(page){
 }
 
 for(const skin of ['modern','retro','vintage','midnight']){
-  test('style '+skin+' renders without sending device commands',async({page})=>{
+  test('style '+skin+' renders without sending device commands',async({page},testInfo)=>{
     await open(page);await page.getByRole('combobox',{name:'Stijl',exact:true}).selectOption(skin);
     await expect(page.locator('.studio')).toHaveAttribute('data-skin',skin);
     await expect(page.locator('#bands input')).toHaveCount(15);
@@ -20,6 +20,10 @@ for(const skin of ['modern','retro','vintage','midnight']){
     if(skin==='vintage')await expect(page.locator('.analog-meters')).toBeVisible();
     else await expect(page.locator('.analog-meters')).toBeHidden();
     await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
+    // Capture the real rendered UI for documentation; all data is synthetic.
+    if(skin==='vintage')await page.locator('.appearance').screenshot({path:testInfo.outputPath('appearance-settings.png')});
+    await page.getByText('Kleuren & uiterlijk',{exact:true}).click();
+    await page.locator('.retro-rack').screenshot({path:testInfo.outputPath(skin+'-desktop.png')});
   });
 }
 
