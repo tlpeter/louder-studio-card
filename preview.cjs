@@ -6,5 +6,5 @@ http.createServer((req,res)=>{
  const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json'};
  res.writeHead(200,{'Content-Type':types[path.extname(file)],'Cache-Control':'no-store'});
  res.end(fs.readFileSync(path.join(__dirname,file)));
-}).listen(port,'127.0.0.1',()=>console.log('Louder preview: http://127.0.0.1:'+port));
+}).listen(port,'127.0.0.1',()=>console.log('Multiroom preview: http://127.0.0.1:'+port));
 

@@ -166,7 +166,8 @@
         "media_artist": "Louder Studio",
         "media_album_name": "Synthetic test audio",
         "media_duration": 240,
-        "media_position": 0
+        "media_position": 0,
+        "supported_features": 16445
       }
     },
     "media_player.speaker_links": {
@@ -179,7 +180,8 @@
         "media_artist": "Louder Studio",
         "media_album_name": "Synthetic test audio",
         "media_duration": 240,
-        "media_position": 0
+        "media_position": 0,
+        "supported_features": 16445
       }
     },
     "select.speaker_links_eq_mode": {
@@ -393,7 +395,8 @@
         "media_artist": "Louder Studio",
         "media_album_name": "Synthetic test audio",
         "media_duration": 240,
-        "media_position": 0
+        "media_position": 0,
+        "supported_features": 16445
       }
     },
     "select.speaker_rechts_eq_mode": {
@@ -599,4 +602,3 @@
     }
   }
 }
-

@@ -1,0 +1,14 @@
+{
+  "type": "custom:multiroom-audio-dashboard",
+  "entity": "media_player.living_room",
+  "players": [
+    {
+      "name": "Woonkamer",
+      "player": "media_player.living_room"
+    },
+    {
+      "name": "Keuken",
+      "player": "media_player.kitchen"
+    }
+  ]
+}

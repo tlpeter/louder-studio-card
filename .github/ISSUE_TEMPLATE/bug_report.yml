@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work
+labels: [bug, P2]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Dashboard and Home Assistant versions
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Speaker brand, model, firmware and HA integration
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Steps, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Remove tokens, ingress URLs, names, addresses, entity IDs and serial numbers. Report security issues privately.

@@ -1,13 +1,13 @@
 {
-  "name": "louder-studio-card",
-  "version": "2.1.0",
+  "name": "multiroom-audio-dashboard",
+  "version": "2.2.0-beta.1",
   "private": true,
   "description": "Home Assistant audio dashboard with selectable styles and Music Assistant visualization",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --check louder-amplifier-card.js && node test-presets.cjs && node test-colors.cjs && node test-audio-relay.cjs",
+    "test": "node --check louder-amplifier-card.js && node test-presets.cjs && node test-colors.cjs && node test-audio-relay.cjs && node test-capabilities.cjs",
     "test:browser": "playwright test",
     "preview": "node preview.cjs"
   },
@@ -15,4 +15,3 @@
     "@playwright/test": "1.64.1"
   }
 }
-
