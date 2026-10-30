@@ -51,6 +51,8 @@ Vanaf **2.2.0-beta.2** kun je zonder YAML spelers kiezen:
 4. Kies de **Hoofdspeler** of bestaande groep voor het bovenste afspeelpaneel.
 5. Klik in Home Assistant op **Opslaan** en sluit de dashboardeditor.
 
+![Visuele kaarteditor: kies een hoofdspeler, zoek in Home Assistant-spelers en vink speakers aan](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/speaker-editor.png)
+
 Je bestaande EQ-, mixer- en sensorkoppelingen blijven behouden bij geselecteerde versterkers. Een nieuwe speaker krijgt de bediening die zijn HA-integratie aanbiedt; er worden geen luidsprekers automatisch gegroepeerd. Voor optionele hardwarekoppelingen zoals losse EQ-entiteiten blijft de uitgebreide kaartconfiguratie beschikbaar.
 
 Zie je **Kleuren & uiterlijk** niet? Controleer of het dashboard de nieuwe HACS-resource laadt en herlaad de browser volledig. Volg hieronder de stappen voor een bestaande installatie; je hoeft je dashboard niet opnieuw te maken.
