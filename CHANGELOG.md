@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0-beta.2
+
+- Add actual screenshots of all four styles and appearance settings to the README, using synthetic demo data.
+- Explain where dashboard settings live, how to preserve an existing dashboard, and how HACS displays version-specific documentation and images.
+- Capture documentation screenshots in the existing browser checks. Audio and device-control behavior is unchanged.
+
 ## 2.2.0-beta.1
 
 - Rename public project to Multiroom Audio Dashboard; retain legacy card type, resource filename and preferences.

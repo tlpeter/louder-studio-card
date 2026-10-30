@@ -1,4 +1,4 @@
-/* Multiroom Audio Dashboard v2.2.0-beta.1 — four styles, local colors and Music Assistant audio relay. */
+/* Multiroom Audio Dashboard v2.2.0-beta.2 — four styles, local colors and Music Assistant audio relay. */
 (() => {
   const TAG = 'multiroom-audio-dashboard';
   const LEGACY_TAG = 'louder-amplifier-card';

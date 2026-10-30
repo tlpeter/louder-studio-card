@@ -2,7 +2,46 @@
 
 Home Assistant-audiobediening met vier instelbare stijlen, spectrum of analoge bronmeters, eigen kleuren en optionele equalizerbediening. Voorheen Louder Studio Card.
 
-**Status: 2.2.0-beta.1.** Automatisch getest met fictieve HA-statussen en PCM-audio. Praktijktests per speaker/integratie staan nog open. GitHub kan geen apparaten bij jou thuis testen. Deze repository installeert niets automatisch in Home Assistant.
+**Status: 2.2.0-beta.2.** Automatisch getest met fictieve HA-statussen en PCM-audio. Praktijktests per speaker/integratie staan nog open. GitHub kan geen apparaten bij jou thuis testen. Deze repository installeert niets automatisch in Home Assistant.
+
+## Zo ziet het eruit
+
+De beelden hieronder zijn screenshots van de werkende kaart met fictieve spelers en demo-audio. Ze tonen het uiterlijk; de bewegende meters zie je in Home Assistant. Iedere stijl kan een spectrum of analoge meters gebruiken en heeft eigen instelbare kleuren.
+
+### Modern spectrum
+
+![Modern spectrum: afgeronde panelen, groen spectrum en afzonderlijke speakerbediening](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/modern-desktop.png)
+
+### Vintage hifi
+
+![Vintage hifi: lichte versterkerstijl met analoge bronmeters en ronde volumeknop](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/vintage-desktop.png)
+
+### Midnight studio
+
+![Midnight studio: donkere stijl met warme koperkleur en spectrum](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/midnight-desktop.png)
+
+### Retro spectrum
+
+![Retro spectrum: klassieke spectrumstijl met groene en oranje accenten](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/retro-desktop.png)
+
+## Waar stel ik dit in?
+
+**De instellingen zitten in de dashboardkaart zelf. HACS gebruik je om de kaart te installeren en bij te werken.**
+
+1. Open je bestaande Home Assistant-dashboard met deze kaart.
+2. Klap **Kleuren & uiterlijk** uit, direct onder de titel.
+3. Kies de **Stijl**, **Visualisatie** (spectrum of analoge VU-meters) en **Databron** (Live Music Assistant of Demo).
+4. Stel **Accentkleur**, **Spectrumtop / naald**, **Achtergrond** en **Meterverlichting** in, of kies een kleurcombinatie.
+
+![Kleuren en uiterlijk: stijl, visualisatie, databron, vier kleurvelden en kleurcombinaties](https://raw.githubusercontent.com/tlpeter/multiroom-audio-dashboard/main/docs/images/appearance-settings.png)
+
+De voorkeuren worden direct in deze browser bewaard; iedere stijl onthoudt zijn eigen kleuren. Je hoeft hiervoor geen YAML aan te passen. EQ-profielen en schuiven staan verder naar beneden en verschijnen alleen bij een daarvoor geconfigureerde versterker. Nieuwe speakers en hun optionele hardwarekoppelingen voeg je toe aan de kaartconfiguratie.
+
+Zie je **Kleuren & uiterlijk** niet? Controleer of het dashboard de nieuwe HACS-resource laadt en herlaad de browser volledig. Volg hieronder de stappen voor een bestaande installatie; je hoeft je dashboard niet opnieuw te maken.
+
+### Plaatjes bekijken in HACS
+
+Open in HACS de detailpagina van **Multiroom Audio Dashboard**. De repository gebruikt `render_readme: true`, zodat de README daar wordt weergegeven. HACS haalt de documentatie op voor de geïnstalleerde of geselecteerde versie: kies **2.2.0-beta.2 of nieuwer** voor deze geïllustreerde uitleg. De afbeeldingen hebben volledige HTTPS-adressen en vereisen geen GitHub-login. Als oude informatie blijft staan, kies **Update information / Informatie bijwerken** in het repositorymenu en open de detailpagina opnieuw. Voor het laden van de plaatjes moet je browser GitHub Raw kunnen bereiken. Zie de [HACS-documentatie](https://www.hacs.dev/docs/publish/start/) en [versiekeuze in de HACS-broncode](https://github.com/hacs/integration/blob/main/custom_components/hacs/repositories/base.py).
 
 ## Installeren via HACS
 
@@ -26,7 +65,7 @@ players:
 
 Bij een bestaande installatie: vervang de oude inline/lokale resource eenmalig door bovenstaande HACS-resource. Laad maar **één versie** van het JavaScript. Je oude `custom:louder-amplifier-card`-type, `boards`-configuratie en stijlvoorkeuren blijven werken. De oude bestandsnaam is behouden voor compatibiliteit. Gebruik voor nieuwe HACS-installaties het nieuwe GitHub-adres.
 
-Zonder HACS: plaats het releasebestand `louder-amplifier-card.js` in `/config/www/multiroom-audio-dashboard/`, registreer `/local/multiroom-audio-dashboard/louder-amplifier-card.js?v=2.2.0-beta.1` als module en herlaad. Een HA-herstart is niet nodig voor deze frontendresource.
+Zonder HACS: plaats het releasebestand `louder-amplifier-card.js` in `/config/www/multiroom-audio-dashboard/`, registreer `/local/multiroom-audio-dashboard/louder-amplifier-card.js?v=2.2.0-beta.2` als module en herlaad. Een HA-herstart is niet nodig voor deze frontendresource.
 
 ## Uiterlijk en bediening
 
