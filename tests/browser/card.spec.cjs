@@ -113,6 +113,9 @@ test('visual editor discovers HA players and preserves amplifier configuration',
   await expect(page.locator('.boards .card')).toHaveCount(3);await expect(page.locator('#bands input')).toHaveCount(15);
   await expect(page.locator('#commands')).toHaveText('Geen opdrachten.');
   await e.screenshot({path:testInfo.outputPath('speaker-editor.png')});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await e.screenshot({path:testInfo.outputPath('speaker-editor-mobile.png')});
 });
 
 test('visual editor searches, retains unavailable players and prevents an empty selection',async({page})=>{

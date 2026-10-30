@@ -4,6 +4,8 @@ Home Assistant-audiobediening met vier instelbare stijlen, spectrum of analoge b
 
 **Status: 2.2.0-beta.2.** Automatisch getest met fictieve HA-statussen en PCM-audio. Praktijktests per speaker/integratie staan nog open. GitHub kan geen apparaten bij jou thuis testen. Deze repository installeert niets automatisch in Home Assistant.
 
+Snel naar: [Kleuren en stijl](#waar-stel-ik-dit-in) · [Andere speakers kiezen](#andere-slimme-speakers-toevoegen) · [Installeren via HACS](#installeren-via-hacs).
+
 ## Zo ziet het eruit
 
 De beelden hieronder zijn screenshots van de werkende kaart met fictieve spelers en demo-audio. Ze tonen het uiterlijk; de bewegende meters zie je in Home Assistant. Iedere stijl kan een spectrum of analoge meters gebruiken en heeft eigen instelbare kleuren.
